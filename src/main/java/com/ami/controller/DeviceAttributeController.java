@@ -49,12 +49,12 @@ public class DeviceAttributeController {
 		return deviceAttributeService.createAttributeKey(request);
 	} 
 
-	@PutMapping("/keys/{id}")
+	@PutMapping("/updateKey/{id}")
 	public AttributeKey updateKey(@PathVariable Long id, @RequestBody CreateAttributeKeyRequestDto request) {
 		return deviceAttributeService.updateAttributeKey(id, request);
 	}
 
-	@DeleteMapping("/keys/{id}")
+	@DeleteMapping("/deleteKey/{id}")
 	public void deleteKey(@PathVariable Long id) {
 		deviceAttributeService.deleteAttributeKey(id);
 	}

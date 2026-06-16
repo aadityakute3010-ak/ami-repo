@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface AttributeKeyRepository extends JpaRepository<AttributeKey, Long> {
 
-    boolean existsByKeyName(String keyName);
+	boolean existsByKeyNameIgnoreCase(String keyName);
 
     List<AttributeKey> findByActiveTrue();
 }

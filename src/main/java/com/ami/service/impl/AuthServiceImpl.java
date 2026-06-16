@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import com.ami.dto.requests.ChangePasswordRequestDto;
 import com.ami.dto.requests.ForgotPasswordRequestDto;

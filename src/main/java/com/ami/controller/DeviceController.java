@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.ami.dto.requests.AssignAdminRequestDto;
 import com.ami.dto.requests.CreateDevicesRequestDto;
 import com.ami.dto.requests.UpdateDeviceLocationRequestDto;
 import com.ami.dto.requests.UpdateDeviceRequestDto;
@@ -39,7 +41,7 @@ public class DeviceController {
 	@PostMapping("/createDevice")
 	public ResponseEntity<List<DeviceResponseDto>> createDevices(@RequestBody CreateDevicesRequestDto request) {
 		return ResponseEntity.ok(deviceService.createDevices(request));
-	} 
+	}
 
 	@GetMapping("/getDevices")
 	public ResponseEntity<PagedDeviceResponseDto> getDevices(@RequestParam(defaultValue = "0") int page,
@@ -116,6 +118,13 @@ public class DeviceController {
 	@GetMapping("/getAudit/{deviceId}")
 	public ResponseEntity<List<DeviceAuditResponseDto>> getDeviceAudit(@PathVariable Long deviceId) {
 		return ResponseEntity.ok(deviceService.getDeviceAudit(deviceId));
+	}
+
+	@PutMapping("/assign-admin/{deviceId}")
+	public ResponseEntity<String> assignAdminToDevice(@PathVariable Long deviceId,
+			                                          @RequestBody AssignAdminRequestDto request) {
+		deviceService.assignAdminToDevice(deviceId, request.getAdminId());
+		return ResponseEntity.ok("Admin assigned successfully");
 	}
 
 }

@@ -15,16 +15,13 @@ import com.ami.dto.responses.TelemetryResponseDto;
 import com.ami.service.TelemetryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import com.ami.dto.requests.TelemetryIngestRequest;
-import com.ami.service.PayloadService;
 
 @RestController
-@RequestMapping("/telemetry") 
+@RequestMapping("/api/telemetry") 
 @RequiredArgsConstructor
 public class TelemetryController {
 
 	private final TelemetryService telemetryService;
-	private final PayloadService payloadService;
 
 	@PostMapping("/saveTelemetry")
 	public ResponseEntity<String> saveTelemetry(@Valid @RequestBody TelemetryRequestDto request) {
@@ -43,10 +40,6 @@ public class TelemetryController {
 		return ResponseEntity.ok(telemetryService.getTelemetryHistory(Id, from, to));
 	}
 
-	@PostMapping("/ingest")
-	public ResponseEntity<String> ingestPayload(@RequestBody TelemetryIngestRequest request) {
-		payloadService.receivePayload(request);
-		return ResponseEntity.ok("Payload received successfully");
-	} 
-
+	
+ 
 }

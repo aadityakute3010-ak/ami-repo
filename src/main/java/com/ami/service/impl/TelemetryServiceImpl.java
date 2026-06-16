@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -92,7 +92,11 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 		Device device = getValidDevice(request.getDeviceId());
 
-		switch (device.getSourceType()) {
+		if (device.getMeter() == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
+
+		switch (device.getMeter().getSourceType()) {
 
 		case ENERGY:
 			saveEnergyTelemetry(device, request);
@@ -113,8 +117,9 @@ public class TelemetryServiceImpl implements TelemetryService {
 		default:
 			throw new RuntimeException("Unsupported source type");
 		}
+
 		updateDeviceSync(device);
-	}
+	} 
 
 	@Override
 	@Transactional
@@ -122,7 +127,11 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 		Device device = getValidDevice(request.getDeviceId());
 
-		switch (device.getSourceType()) {
+		if (device.getMeter() == null) {
+		    throw new RuntimeException("Meter not configured for device");
+		}
+
+		switch (device.getMeter().getSourceType()) {
 
 		case ENERGY:
 			saveEnergyTelemetry(device, request);
@@ -143,7 +152,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		default:
 			throw new RuntimeException("Unsupported Source Type");
 		}
-	}
+	} 
 
 	private void saveWaterTelemetry(Device device, TelemetryIngestRequest request) {
 
@@ -296,7 +305,11 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 		Object telemetryData = null;
 
-		switch (device.getSourceType()) {
+		if (device.getMeter() == null) {
+		    throw new RuntimeException("Meter not configured for device");
+		}
+
+		switch (device.getMeter().getSourceType()) {
 
 		case ENERGY:
 			EnergyTelemetry energyTelemetry = energyTelemetryRepository.findTopByDeviceOrderByReadingTimeDesc(device)
@@ -359,7 +372,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 			throw new RuntimeException("Unsupported source type");
 		}
 		return TelemetryResponseDto.builder().deviceId(device.getId()).deviceCode(device.getDeviceId())
-				.sourceType(device.getSourceType().name()).telemetryData(telemetryData).build();
+				.sourceType(device.getMeter().getSourceType().name()).telemetryData(telemetryData).build();
 	}
 
 	@Override
@@ -379,7 +392,11 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 		List<?> telemetryRecords;
 
-		switch (device.getSourceType()) {
+		if (device.getMeter() == null) {
+		    throw new RuntimeException("Meter not configured for device");
+		}
+
+		switch (device.getMeter().getSourceType()) {
 
 		case WATER:
 			List<WaterTelemetryResponseDto> waterHistory = waterTelemetryRepository
@@ -430,7 +447,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		}
 
 		return TelemetryHistoryResponseDto.builder().deviceId(device.getId()).deviceCode(device.getDeviceId())
-				.sourceType(device.getSourceType().name()).telemetryRecords(telemetryRecords).build();
+				.sourceType(device.getMeter().getSourceType().name()).telemetryRecords(telemetryRecords).build();
 	}
 
 }

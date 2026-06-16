@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;

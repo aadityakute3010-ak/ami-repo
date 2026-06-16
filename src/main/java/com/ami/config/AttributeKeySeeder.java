@@ -43,7 +43,7 @@ public class AttributeKeySeeder implements CommandLineRunner {
                                  String unit,
                                  String category) {
 
-        if (!attributeKeyRepository.existsByKeyName(keyName)) {
+        if (!attributeKeyRepository.existsByKeyNameIgnoreCase(keyName)) {
 
             AttributeKey key = AttributeKey.builder()
                     .keyName(keyName)

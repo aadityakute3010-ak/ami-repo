@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import com.ami.dto.requests.AdminUpdateUserRequestDto;
 import com.ami.dto.requests.CreateUserRequest;
@@ -635,7 +635,7 @@ public class UserServiceImpl implements UserService {
 		List<User> admins = userRepository.findEligibleAdmins(RoleType.ADMIN, sourceType, search);
 
 		return admins.stream().map(this::mapToUserListResponseDto).toList();
-	}
+	} 
 
 	private UserListResponseDto mapToUserListResponseDto(User user) {
 

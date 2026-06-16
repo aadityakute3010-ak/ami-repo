@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,8 +43,8 @@ public class PayloadServiceImpl implements PayloadService {
 	private final PayloadMapper payloadMapper;
 
 	private final SecurityUtils securityUtils;
-	
-	private final TelemetryService telemetryService; 
+
+	private final TelemetryService telemetryService;
 
 	private Payload findPayloadOrThrow(Long payloadId) {
 
@@ -149,11 +149,12 @@ public class PayloadServiceImpl implements PayloadService {
 		User loggedInUser = securityUtils.getLoggedInUser();
 		LocalDateTime from = request.getFrom() != null ? request.getFrom().atStartOfDay() : null;
 		LocalDateTime to = request.getTo() != null ? request.getTo().atTime(LocalTime.MAX) : null;
-		
+
 		Pageable pageable = PageRequest.of(request.getPage(), request.getSize(),
 				Sort.by(Sort.Direction.DESC, "receivedAt"));
 
 		Page<Payload> payloads;
+		
 
 		// SUPER ADMIN
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
@@ -221,17 +222,76 @@ public class PayloadServiceImpl implements PayloadService {
 	@Override
 	@Transactional
 	public void receivePayload(TelemetryIngestRequest request) {
+		
+		if (request.getDeviceId() == null || request.getDeviceId().isBlank()) {
+		    throw new RuntimeException("Device Id is missing");
+		}
+		
 		Device device = deviceRepository.findByDeviceId(request.getDeviceId()).orElseThrow(
 				() -> new ResourceNotFoundException("Device not found with deviceId : " + request.getDeviceId()));
+		
+		if(device.getMeter()==null){
+		    throw new RuntimeException("Meter not configured for device");
+		}
 
-		// Calculate consumption
+		PayloadStatus status = PayloadStatus.SUCCESS;
+		String failureReason = null;
+
+		// =====================================================
+		// Business Validations
+		// =====================================================
+
+		if (request.getStartReading() == null) {
+			status = PayloadStatus.FAILED;
+			failureReason = "Start reading is missing";
+		}
+
+		else if (request.getEndReading() == null) {
+			status = PayloadStatus.FAILED;
+			failureReason = "End reading is missing";
+		}
+
+		else if (request.getEndReading() < request.getStartReading()) {
+			status = PayloadStatus.FAILED;
+			failureReason = "End reading cannot be less than start reading";
+		}
+
+		else if (request.getBatteryPercentage() != null
+				&& (request.getBatteryPercentage() < 0 || request.getBatteryPercentage() > 100)) {
+
+			status = PayloadStatus.FAILED;
+			failureReason = "Invalid battery percentage";
+		}
+
+		else if (request.getSignalQuality() != null && request.getSignalQuality() < 0) {
+
+			status = PayloadStatus.FAILED;
+			failureReason = "Invalid signal quality";
+		}
+
+		else if (request.getSignalPower() != null && request.getSignalPower() > 0) {
+
+			status = PayloadStatus.FAILED;
+			failureReason = "Invalid signal power";
+		}
+		
+		else if (request.getDeviceId() == null || request.getDeviceId().isBlank()) {
+		    status = PayloadStatus.FAILED;
+		    failureReason = "Device Id is missing";
+		}
+
+		// =====================================================
+		// Consumption Calculation
+		// =====================================================
+
 		Double consumption = null;
-		if (request.getStartReading() != null && request.getEndReading() != null) {
+
+		if (status == PayloadStatus.SUCCESS) {
 			consumption = request.getEndReading() - request.getStartReading();
 		}
 
 		Payload payload = Payload.builder()
-				
+
 				// Device
 				.device(device)
 				// Meter Data
@@ -244,7 +304,7 @@ public class PayloadServiceImpl implements PayloadService {
 				.firmwareVersion(request.getFirmwareVersion()).simNumber(request.getSimNumber())
 				.consumerNumber(request.getConsumerNumber())
 				// Status
-				.status(PayloadStatus.SUCCESS)
+				.status(status).failureReason(failureReason)
 				// Device State
 				.valveStatus(request.getValveStatus()).sensorStatus(request.getSensorStatus())
 
@@ -257,13 +317,15 @@ public class PayloadServiceImpl implements PayloadService {
 				.build();
 
 		payloadRepository.save(payload);
-		telemetryService.saveTelemetryFromIngest(request);
+		if (status == PayloadStatus.SUCCESS) {
 
-		// Update Device Runtime Status
-		device.setOnline(true);
-		device.setLastSyncTime(LocalDateTime.now());
+			telemetryService.saveTelemetryFromIngest(request);
 
-		deviceRepository.save(device);
+			device.setOnline(true);
+			device.setLastSyncTime(LocalDateTime.now());
+
+			deviceRepository.save(device);
+		}
 	}
 
 	@Override
@@ -292,7 +354,7 @@ public class PayloadServiceImpl implements PayloadService {
 
 			payloadRepository.delete(payload);
 			return;
-		} 
+		}
 
 		throw new RuntimeException("Users are not allowed to delete payloads");
 	}

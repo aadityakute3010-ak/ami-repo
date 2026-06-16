@@ -33,7 +33,7 @@ public class JwtUtil {
 				.claim("role", user.getRole().name()).setIssuedAt(new Date())
 				.setExpiration(new Date(System.currentTimeMillis() + expiration))
 				.signWith(key, SignatureAlgorithm.HS256).compact();
-	}
+	} 
 
 	public String extractEmail(String token) {
 		return extractClaims(token).getSubject();

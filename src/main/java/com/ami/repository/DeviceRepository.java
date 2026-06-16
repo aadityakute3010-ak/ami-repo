@@ -31,11 +31,21 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 	@Query("""
 			SELECT d
 			FROM Device d
+			JOIN d.meter m
 			WHERE d.assignedAdmin.id = :adminId
 			AND d.assignedUser IS NULL
-			AND d.sourceType IN :sources
+			AND m.sourceType IN :sources
 			""")
 	List<Device> findAvailableDevicesForUser(Long adminId, Set<SourceType> sources);
+
+	@Query("""
+			SELECT d
+			FROM Device d
+			JOIN d.meter m
+			WHERE d.assignedUser IS NULL
+			AND m.sourceType IN :sources
+			""")
+	List<Device> findAvailableDevicesForSuperAdmin(Set<SourceType> sources);
 
 	@Query("""
 			SELECT d
@@ -46,13 +56,15 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 			AND (
 			     :search IS NULL
 			     OR LOWER(d.deviceName) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.deviceId) LIKE LOWER(CONCAT('%', :search, '%'))
 			     OR LOWER(d.macAddress) LIKE LOWER(CONCAT('%', :search, '%'))
 			     OR LOWER(d.serialNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.meter.meterName) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.customerName) LIKE LOWER(CONCAT('%', :search, '%'))
 			)
-			AND (:status IS NULL OR d.status = :status)
-			AND (:sourceType IS NULL OR d.sourceType = :sourceType)
-			AND (:technologyType IS NULL OR d.technologyType = :technologyType)
-			""")
+			AND (:status IS NULL OR d.meter.status = :status)
+			AND (:sourceType IS NULL OR d.meter.sourceType = :sourceType)
+			AND (:technologyType IS NULL OR d.meter.technologyType = :technologyType)""")
 	Page<Device> findDevicesWithFilters(Long adminId, Long userId, String search, DeviceStatus status,
 			SourceType sourceType, TechnologyType technologyType, Pageable pageable);
 
@@ -65,7 +77,7 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 	Page<Device> findByActiveFalse(Pageable pageable);
 
 	Page<Device> findByAssignedAdminIdAndActiveFalse(Long adminId, Pageable pageable);
-	
+
 	Optional<Device> findByDeviceId(String deviceId);
 
 }

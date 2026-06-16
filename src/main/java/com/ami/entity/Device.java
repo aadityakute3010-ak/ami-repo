@@ -1,15 +1,8 @@
 package com.ami.entity;
 
 import java.time.LocalDateTime;
-
-import com.ami.enums.ApplicationOfAmi;
 import com.ami.enums.BillingType;
-import com.ami.enums.DeviceStatus;
-import com.ami.enums.DiameterSize;
-import com.ami.enums.AmiApplicationType;
-import com.ami.enums.SourceType;
-import com.ami.enums.TechnologyType;
-
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,8 +13,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -39,93 +32,68 @@ import lombok.Setter;
 @EqualsAndHashCode(callSuper = false)
 public class Device extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    // Device Identity
+	// Device Identity
 
-    @Column(unique = true, nullable = false)
-    private String deviceId;
+	@Column(unique = true, nullable = false)
+	private String deviceId;
 
-    @Column(unique = true, nullable = false)
-    private String macAddress;
+	@Column(unique = true, nullable = false)
+	private String macAddress;
 
-    @Column(unique = true, nullable = false)
-    private String serialNumber;
+	@Column(unique = true, nullable = false)
+	private String serialNumber;
 
-    // Meter / Device Information
+	@Column(nullable = false)
+	private String deviceName;
 
-    @Column(nullable = false)
-    private String deviceName;
-    
-    @Column(nullable = false)
-    private String meterName;
+	@Enumerated(EnumType.STRING)
+	private BillingType billingType;
 
-    @Enumerated(EnumType.STRING)
-    private SourceType sourceType;
+	// Customer Information
 
-    @Enumerated(EnumType.STRING)
-    private TechnologyType technologyType;
+	private String customerName;
 
-    @Enumerated(EnumType.STRING)
-    private DeviceStatus status;
-    
-    @Enumerated(EnumType.STRING) 
-    private BillingType billingType;
+	private String customerAddress;
 
-    // Customer Information
+	private String buildingOrWing;
 
-    private String customerName;
+	private String area;
 
-    private String customerAddress;
+	private String zone;
 
-    private String buildingOrWing;
+	private String city;
 
-    private String area;
+	private String state;
 
-    private String zone;
+	private String meterLocation;
 
-    private String city;
+	// Runtime Information
 
-    private String state;
+	private Boolean active;
 
-    private String meterLocation;
+	private Boolean online;
 
-    // Meter Configuration
+	private LocalDateTime lastSyncTime;
 
-    @Enumerated(EnumType.STRING)
-    private ApplicationOfAmi applicationOfAmi; 
+	// Ownership
 
-    @Enumerated(EnumType.STRING)
-    private AmiApplicationType amiApplicationType;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "created_by_id")
+	private User createdBy;
 
-    @Enumerated(EnumType.STRING)
-    private DiameterSize diameterSize;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assigned_admin_id")
+	private User assignedAdmin;
 
-    private Double literPerPulse;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "assigned_user_id")
+	private User assignedUser;
 
-    private Double meterStartReading;
-
-    // Runtime Information
-
-    private Boolean active;
-
-    private Boolean online;
-
-    private LocalDateTime lastSyncTime;
-
-    // Ownership
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_id")
-    private User createdBy;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_admin_id")
-    private User assignedAdmin;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_user_id")
-    private User assignedUser;
+	@OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+	@JoinColumn(name = "meter_id")
+	private Meter meter; 
 }

@@ -22,8 +22,6 @@ public class DeviceListResponseDto {
 
     private String deviceName;
 
-    private String meterName;
-
     private SourceType sourceType;
 
     private TechnologyType technologyType;

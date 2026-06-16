@@ -19,7 +19,7 @@ public class PayloadFilterRequest {
 
 	private String consumer;
 
-	private PayloadStatus status;
+	private PayloadStatus status; 
 
 	@DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
 	private LocalDate from;

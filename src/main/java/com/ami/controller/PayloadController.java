@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.RequiredArgsConstructor;
 import com.ami.dto.requests.PayloadFilterRequest;
+import com.ami.dto.requests.TelemetryIngestRequest;
 import com.ami.dto.responses.HourlyReadingDTO;
 import com.ami.dto.responses.PayloadDetailDTO;
 import com.ami.dto.responses.PayloadStatsDTO;
@@ -20,12 +21,18 @@ import com.ami.service.PayloadService;
 public class PayloadController {
 
 	private final PayloadService payloadService;
+	
+	@PostMapping("/ingest")
+	public ResponseEntity<String> ingestPayload(@RequestBody TelemetryIngestRequest request) {
+		payloadService.receivePayload(request);
+		return ResponseEntity.ok("Payload received successfully");
+	} 
 
 	// Dashboard Cards
 	@GetMapping("/payloadStats")
 	public ResponseEntity<PayloadStatsDTO> getStats() {
 		return ResponseEntity.ok(payloadService.getStats());
-	}
+	} 
 
 	// Main Table
 	@GetMapping("/getPayloads")

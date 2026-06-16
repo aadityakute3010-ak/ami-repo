@@ -17,47 +17,48 @@ public interface PayloadRepository extends JpaRepository<Payload, Long> {
 
 	// Online Devices
 	@Query("""
-			    SELECT COUNT(DISTINCT p.device.id)
-			    FROM Payload p
-			    WHERE p.receivedAt >= :since
+			SELECT COUNT(DISTINCT p.device.id)
+			FROM Payload p
+			WHERE p.device.active = true
+			AND p.receivedAt >= :since
 			""")
 	long countOnlineDevices(@Param("since") LocalDateTime since);
 
 	// Payload Listing with Filters
 	@Query("""
-			    SELECT p
-			    FROM Payload p
-			    JOIN p.device d
-			    WHERE
-			        (:deviceId IS NULL OR d.id = :deviceId)
+			SELECT p
+			FROM Payload p
+			JOIN p.device d
+			WHERE d.active = true
 
-			        AND (:consumer IS NULL
-			             OR LOWER(p.consumerNumber)
-			             LIKE LOWER(CONCAT('%', :consumer, '%')))
+			AND (:deviceId IS NULL OR d.id = :deviceId)
 
-			        AND (:status IS NULL
-			             OR p.status = :status)
+			AND (
+			    :consumer IS NULL
+			    OR LOWER(p.consumerNumber)
+			       LIKE LOWER(CONCAT('%', :consumer, '%'))
+			)
 
-			        AND (:from IS NULL
-			             OR p.receivedAt >= :from)
+			AND (:status IS NULL OR p.status = :status)
 
-			        AND (:to IS NULL
-			             OR p.receivedAt <= :to)
+			AND (:from IS NULL OR p.receivedAt >= :from)
 
-			        AND (
-			             :search IS NULL
+			AND (:to IS NULL OR p.receivedAt <= :to)
 
-			             OR LOWER(d.deviceName)
-			             LIKE LOWER(CONCAT('%', :search, '%'))
+			AND (
+			    :search IS NULL
 
-			             OR LOWER(d.serialNumber)
-			             LIKE LOWER(CONCAT('%', :search, '%'))
+			    OR LOWER(d.deviceName)
+			       LIKE LOWER(CONCAT('%', :search, '%'))
 
-			             OR LOWER(d.macAddress)
-			             LIKE LOWER(CONCAT('%', :search, '%'))
-			        )
+			    OR LOWER(d.serialNumber)
+			       LIKE LOWER(CONCAT('%', :search, '%'))
 
-			    ORDER BY p.receivedAt DESC
+			    OR LOWER(d.macAddress)
+			       LIKE LOWER(CONCAT('%', :search, '%'))
+			)
+
+			ORDER BY p.receivedAt DESC
 			""")
 	Page<Payload> findWithFiltersForSuperAdmin(@Param("deviceId") Long deviceId, @Param("consumer") String consumer,
 			@Param("status") PayloadStatus status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to,
@@ -67,53 +68,83 @@ public interface PayloadRepository extends JpaRepository<Payload, Long> {
 			SELECT p
 			FROM Payload p
 			JOIN p.device d
-			WHERE d.assignedAdmin.id = :adminId
+			WHERE d.active = true
+			AND d.assignedAdmin.id = :adminId
 
 			AND (:deviceId IS NULL OR d.id = :deviceId)
-			AND (:consumer IS NULL OR p.consumerNumber LIKE %:consumer%)
+
+			AND (
+			    :consumer IS NULL
+			    OR LOWER(p.consumerNumber)
+			       LIKE LOWER(CONCAT('%', :consumer, '%'))
+			)
+
 			AND (:status IS NULL OR p.status = :status)
+
 			AND (:from IS NULL OR p.receivedAt >= :from)
+
 			AND (:to IS NULL OR p.receivedAt <= :to)
 
 			AND (
 			    :search IS NULL
+
 			    OR LOWER(d.deviceName)
-			        LIKE LOWER(CONCAT('%',:search,'%'))
+			       LIKE LOWER(CONCAT('%', :search, '%'))
+
 			    OR LOWER(d.serialNumber)
-			        LIKE LOWER(CONCAT('%',:search,'%'))
+			       LIKE LOWER(CONCAT('%', :search, '%'))
+
 			    OR LOWER(d.macAddress)
-			        LIKE LOWER(CONCAT('%',:search,'%'))
+			       LIKE LOWER(CONCAT('%', :search, '%'))
 			)
+
 			ORDER BY p.receivedAt DESC
 			""")
-	Page<Payload> findWithFiltersForAdmin(Long adminId, Long deviceId, String consumer, PayloadStatus status,
-			LocalDateTime from, LocalDateTime to, String search, Pageable pageable);
+	Page<Payload> findWithFiltersForAdmin(@Param("adminId") Long adminId, @Param("deviceId") Long deviceId,
+			@Param("consumer") String consumer, @Param("status") PayloadStatus status,
+			@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("search") String search,
+			Pageable pageable);
 
 	@Query("""
 			SELECT p
 			FROM Payload p
 			JOIN p.device d
-			WHERE d.assignedUser.id = :userId
+			WHERE d.active = true
+			AND d.assignedUser.id = :userId
 
 			AND (:deviceId IS NULL OR d.id = :deviceId)
-			AND (:consumer IS NULL OR p.consumerNumber LIKE %:consumer%)
+
+			AND (
+			    :consumer IS NULL
+			    OR LOWER(p.consumerNumber)
+			       LIKE LOWER(CONCAT('%', :consumer, '%'))
+			)
+
 			AND (:status IS NULL OR p.status = :status)
+
 			AND (:from IS NULL OR p.receivedAt >= :from)
+
 			AND (:to IS NULL OR p.receivedAt <= :to)
 
 			AND (
 			    :search IS NULL
+
 			    OR LOWER(d.deviceName)
-			        LIKE LOWER(CONCAT('%',:search,'%'))
+			       LIKE LOWER(CONCAT('%', :search, '%'))
+
 			    OR LOWER(d.serialNumber)
-			        LIKE LOWER(CONCAT('%',:search,'%'))
+			       LIKE LOWER(CONCAT('%', :search, '%'))
+
 			    OR LOWER(d.macAddress)
-			        LIKE LOWER(CONCAT('%',:search,'%'))
+			       LIKE LOWER(CONCAT('%', :search, '%'))
 			)
+
 			ORDER BY p.receivedAt DESC
 			""")
-	Page<Payload> findWithFiltersForUser(Long userId, Long deviceId, String consumer, PayloadStatus status,
-			LocalDateTime from, LocalDateTime to, String search, Pageable pageable);
+	Page<Payload> findWithFiltersForUser(@Param("userId") Long userId, @Param("deviceId") Long deviceId,
+			@Param("consumer") String consumer, @Param("status") PayloadStatus status,
+			@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("search") String search,
+			Pageable pageable);
 
 	// Consumption Trend
 	@Query("""
@@ -142,14 +173,16 @@ public interface PayloadRepository extends JpaRepository<Payload, Long> {
 	@Query("""
 			SELECT COUNT(p)
 			FROM Payload p
-			WHERE p.device.assignedAdmin.id = :adminId
+			WHERE p.device.active = true
+			AND p.device.assignedAdmin.id = :adminId
 			""")
 	long countByAssignedAdmin(@Param("adminId") Long adminId);
 
 	@Query("""
 			SELECT COUNT(p)
 			FROM Payload p
-			WHERE p.device.assignedAdmin.id = :adminId
+			WHERE p.device.active = true
+			AND p.device.assignedAdmin.id = :adminId
 			AND p.status = :status
 			""")
 	long countByAssignedAdminAndStatus(@Param("adminId") Long adminId, @Param("status") PayloadStatus status);
@@ -157,7 +190,8 @@ public interface PayloadRepository extends JpaRepository<Payload, Long> {
 	@Query("""
 			SELECT COUNT(DISTINCT p.device.id)
 			FROM Payload p
-			WHERE p.device.assignedAdmin.id = :adminId
+			WHERE p.device.active = true
+			AND p.device.assignedAdmin.id = :adminId
 			AND p.receivedAt >= :since
 			""")
 	long countOnlineDevicesByAdmin(@Param("adminId") Long adminId, @Param("since") LocalDateTime since);
@@ -165,14 +199,16 @@ public interface PayloadRepository extends JpaRepository<Payload, Long> {
 	@Query("""
 			SELECT COUNT(p)
 			FROM Payload p
-			WHERE p.device.assignedUser.id = :userId
+			WHERE p.device.active = true
+			AND p.device.assignedUser.id = :userId
 			""")
 	long countByAssignedUser(@Param("userId") Long userId);
 
 	@Query("""
 			SELECT COUNT(p)
 			FROM Payload p
-			WHERE p.device.assignedUser.id = :userId
+			WHERE p.device.active = true
+			AND p.device.assignedUser.id = :userId
 			AND p.status = :status
 			""")
 	long countByAssignedUserAndStatus(@Param("userId") Long userId, @Param("status") PayloadStatus status);
@@ -180,7 +216,8 @@ public interface PayloadRepository extends JpaRepository<Payload, Long> {
 	@Query("""
 			SELECT COUNT(DISTINCT p.device.id)
 			FROM Payload p
-			WHERE p.device.assignedUser.id = :userId
+			WHERE p.device.active = true
+			AND p.device.assignedUser.id = :userId
 			AND p.receivedAt >= :since
 			""")
 	long countOnlineDevicesByUser(@Param("userId") Long userId, @Param("since") LocalDateTime since);

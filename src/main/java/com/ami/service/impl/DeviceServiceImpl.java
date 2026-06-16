@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,11 +25,13 @@ import com.ami.dto.responses.DeviceUpdateFormResponseDto;
 import com.ami.dto.responses.PagedDeviceResponseDto;
 import com.ami.entity.Device;
 import com.ami.entity.DeviceAudit;
+import com.ami.entity.Meter;
 import com.ami.entity.User;
 import com.ami.enums.DeviceStatus;
 import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
+import com.ami.exception.ResourceNotFoundException;
 import com.ami.repository.DeviceAuditRepository;
 import com.ami.repository.DeviceRepository;
 import com.ami.repository.UserRepository;
@@ -62,16 +64,22 @@ public class DeviceServiceImpl implements DeviceService {
 
 		for (CreateDeviceRequestDto dto : devices) {
 
-			if (!deviceIds.add(dto.getDeviceId())) {
-				throw new RuntimeException("Duplicate deviceId in request: " + dto.getDeviceId());
+			String deviceId = dto.getDevice().getDeviceId();
+
+			String macAddress = dto.getDevice().getMacAddress();
+
+			String serialNumber = dto.getDevice().getSerialNumber();
+
+			if (!deviceIds.add(deviceId)) {
+				throw new RuntimeException("Duplicate deviceId in request: " + deviceId);
 			}
 
-			if (!macs.add(dto.getMacAddress())) {
-				throw new RuntimeException("Duplicate macAddress in request: " + dto.getMacAddress());
+			if (!macs.add(macAddress)) {
+				throw new RuntimeException("Duplicate macAddress in request: " + macAddress);
 			}
 
-			if (!serials.add(dto.getSerialNumber())) {
-				throw new RuntimeException("Duplicate serialNumber in request: " + dto.getSerialNumber());
+			if (!serials.add(serialNumber)) {
+				throw new RuntimeException("Duplicate serialNumber in request: " + serialNumber);
 			}
 		}
 	}
@@ -84,50 +92,84 @@ public class DeviceServiceImpl implements DeviceService {
 
 	private void validateDeviceExists(CreateDeviceRequestDto dto) {
 
-		if (deviceRepository.existsByDeviceId(dto.getDeviceId())) {
-			throw new RuntimeException("DeviceId already exists: " + dto.getDeviceId());
+		String deviceId = dto.getDevice().getDeviceId();
+		String macAddress = dto.getDevice().getMacAddress();
+		String serialNumber = dto.getDevice().getSerialNumber();
+
+		if (deviceRepository.existsByDeviceId(deviceId)) {
+			throw new RuntimeException("DeviceId already exists: " + deviceId);
 		}
 
-		if (deviceRepository.existsByMacAddress(dto.getMacAddress())) {
-			throw new RuntimeException("MAC already exists: " + dto.getMacAddress());
+		if (deviceRepository.existsByMacAddress(macAddress)) {
+			throw new RuntimeException("MAC already exists: " + macAddress);
 		}
 
-		if (deviceRepository.existsBySerialNumber(dto.getSerialNumber())) {
-			throw new RuntimeException("Serial already exists: " + dto.getSerialNumber());
+		if (deviceRepository.existsBySerialNumber(serialNumber)) {
+			throw new RuntimeException("Serial already exists: " + serialNumber);
 		}
 	}
 
 	private Device buildDevice(CreateDeviceRequestDto request, User assignedAdmin, User assignedUser, User superAdmin) {
 
-		return Device.builder()
+		Meter meter = Meter.builder().meterName(request.getMeter().getMeterName())
+				.sourceType(request.getMeter().getSourceType()).technologyType(request.getMeter().getTechnologyType())
 
-				.deviceId(request.getDeviceId()).macAddress(request.getMacAddress())
-				.serialNumber(request.getSerialNumber())
+				.applicationOfAmi(request.getMeter().getApplicationOfAmi())
+				.amiApplicationType(request.getMeter().getAmiApplicationType())
 
-				.deviceName(request.getDeviceName()).meterName(request.getMeterName())
+				.diameterSize(request.getMeter().getDiameterSize())
 
-				.sourceType(request.getSourceType()).technologyType(request.getTechnologyType())
+				.literPerPulse(request.getMeter().getLiterPerPulse())
+
+				.meterStartReading(request.getMeter().getMeterStartReading())
+
+				.status(DeviceStatus.ACTIVE).build();
+
+		Device device = Device.builder()
+
+				.deviceId(request.getDevice().getDeviceId())
+
+				.deviceName(request.getDevice().getDeviceName())
+
+				.macAddress(request.getDevice().getMacAddress())
+
+				.serialNumber(request.getDevice().getSerialNumber())
 
 				.billingType(request.getBillingType())
 
-				.customerName(request.getCustomerName()).customerAddress(request.getCustomerAddress())
+				.customerName(request.getCustomer().getCustomerName())
 
-				.buildingOrWing(request.getBuildingOrWing()).area(request.getArea()).zone(request.getZone())
-				.city(request.getCity()).state(request.getState())
+				.customerAddress(request.getCustomer().getCustomerAddress())
 
-				.meterLocation(request.getMeterLocation())
+				.buildingOrWing(request.getCustomer().getBuildingOrWing())
 
-				.applicationOfAmi(request.getApplicationOfAmi()).amiApplicationType(request.getAmiApplicationType())
+				.area(request.getCustomer().getArea())
 
-				.diameterSize(request.getDiameterSize())
+				.zone(request.getCustomer().getZone())
 
-				.literPerPulse(request.getLiterPerPulse()).meterStartReading(request.getMeterStartReading())
+				.city(request.getCustomer().getCity())
 
-				.status(DeviceStatus.ACTIVE).active(true).online(false)
+				.state(request.getCustomer().getState())
 
-				.createdBy(superAdmin).assignedAdmin(assignedAdmin).assignedUser(assignedUser)
+				.meterLocation(request.getCustomer().getMeterLocation())
+
+				.active(true)
+
+				.online(false)
+
+				.createdBy(superAdmin)
+
+				.assignedAdmin(assignedAdmin)
+
+				.assignedUser(assignedUser)
+
+				.meter(meter)
 
 				.build();
+
+		meter.setDevice(device);
+
+		return device;
 	}
 
 	@Override
@@ -162,15 +204,18 @@ public class DeviceServiceImpl implements DeviceService {
 	private DeviceResponseDto mapToResponse(Device device) {
 
 		return DeviceResponseDto.builder().id(device.getId()).deviceId(device.getDeviceId())
-				.deviceName(device.getDeviceName()).meterName(device.getMeterName())
+				.deviceName(device.getDeviceName())
+				.meterName(device.getMeter() != null ? device.getMeter().getMeterName() : null)
 
 				// Device Information
-				.technologyType(device.getTechnologyType()).sourceType(device.getSourceType())
+				.technologyType(device.getMeter() != null ? device.getMeter().getTechnologyType() : null)
+				.sourceType(device.getMeter() != null ? device.getMeter().getSourceType() : null)
 				.macAddress(device.getMacAddress()).serialNumber(device.getSerialNumber())
 				.billingType(device.getBillingType())
 
 				// Status
-				.status(device.getStatus()).active(device.getActive()).online(device.getOnline())
+				.status(device.getMeter() != null ? device.getMeter().getStatus() : null).active(device.getActive())
+				.online(device.getOnline())
 
 				// Customer Information
 				.customerName(device.getCustomerName()).customerAddress(device.getCustomerAddress())
@@ -178,10 +223,11 @@ public class DeviceServiceImpl implements DeviceService {
 				.city(device.getCity()).state(device.getState()).meterLocation(device.getMeterLocation())
 
 				// Meter Information
-				.applicationOfAmi(device.getApplicationOfAmi()) // if field exists
-				.amiApplicationType(device.getAmiApplicationType()).diameterSize(device.getDiameterSize())
-				.literPerPulse(device.getLiterPerPulse()).meterStartReading(device.getMeterStartReading())
-
+				.applicationOfAmi(device.getMeter() != null ? device.getMeter().getApplicationOfAmi() : null)
+				.amiApplicationType(device.getMeter() != null ? device.getMeter().getAmiApplicationType() : null)
+				.diameterSize(device.getMeter() != null ? device.getMeter().getDiameterSize() : null)
+				.literPerPulse(device.getMeter() != null ? device.getMeter().getLiterPerPulse() : null)
+				.meterStartReading(device.getMeter() != null ? device.getMeter().getMeterStartReading() : null)
 				.lastSyncTime(device.getLastSyncTime())
 
 				.assignedAdminName(device.getAssignedAdmin() != null
@@ -234,16 +280,18 @@ public class DeviceServiceImpl implements DeviceService {
 	}
 
 	private DeviceListResponseDto mapToDeviceListResponse(Device device) {
+
+		Meter meter = device.getMeter();
 		DeviceListResponseDto dto = new DeviceListResponseDto();
 		dto.setId(device.getId());
 		dto.setDeviceId(device.getDeviceId());
 		dto.setDeviceName(device.getDeviceName());
-		dto.setSourceType(device.getSourceType());
-		dto.setTechnologyType(device.getTechnologyType());
+		dto.setSourceType(meter != null ? meter.getSourceType() : null);
+		dto.setTechnologyType(meter != null ? meter.getTechnologyType() : null);
 		dto.setSerialNumber(device.getSerialNumber());
 		dto.setMacAddress(device.getMacAddress());
 		dto.setBillingType(device.getBillingType());
-		dto.setStatus(device.getStatus());
+		dto.setStatus(meter != null ? meter.getStatus() : null);
 		dto.setActive(device.getActive());
 		dto.setOnline(device.getOnline());
 		if (device.getAssignedAdmin() != null) {
@@ -268,19 +316,18 @@ public class DeviceServiceImpl implements DeviceService {
 		User targetUser = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
 		// ONLY ADMIN
-		if (loggedInUser.getRole() != RoleType.SUPER_ADMIN && loggedInUser.getRole() != RoleType.ADMIN) {
+		RoleType role = loggedInUser.getRole();
+		if (role != RoleType.SUPER_ADMIN && role != RoleType.ADMIN) {
 			throw new RuntimeException("Access Denied");
 		}
 
 		// ADMIN RULES
-		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN || loggedInUser.getRole() == RoleType.ADMIN) {
+		if (loggedInUser.getRole() == RoleType.ADMIN) {
 
-			// DEVICE MUST BELONG TO ADMIN
 			if (device.getAssignedAdmin() == null || !device.getAssignedAdmin().getId().equals(loggedInUser.getId())) {
 				throw new RuntimeException("You cannot assign this device");
 			}
 
-			// USER MUST BE CREATED BY ADMIN
 			if (targetUser.getCreatedBy() == null || !targetUser.getCreatedBy().getId().equals(loggedInUser.getId())) {
 				throw new RuntimeException("You cannot assign device to this user");
 			}
@@ -293,8 +340,13 @@ public class DeviceServiceImpl implements DeviceService {
 		}
 
 		// Checks if the User have the source of that Device Type
-		if (!targetUser.getAssignedSources().contains(device.getSourceType())) {
-			throw new RuntimeException("User does not have access to source: " + device.getSourceType());
+		Meter meter = device.getMeter();
+		if (meter == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
+		SourceType sourceType = meter.getSourceType();
+		if (!targetUser.getAssignedSources().contains(sourceType)) {
+			throw new RuntimeException("User does not have access to source: " + sourceType);
 		}
 		device.setAssignedUser(targetUser);
 		Device updatedDevice = deviceRepository.save(device);
@@ -304,15 +356,28 @@ public class DeviceServiceImpl implements DeviceService {
 	public List<DeviceResponseDto> getAvailableDevicesForAssignment(Long userId) {
 
 		User loggedInAdmin = getLoggedInUser();
+		RoleType role = loggedInAdmin.getRole();
+		if (role != RoleType.SUPER_ADMIN && role != RoleType.ADMIN) {
+			throw new RuntimeException("Access Denied");
+		}
+
 		User targetUser = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
 		// USER MUST BELONG TO ADMIN
-		if (targetUser.getCreatedBy() == null || !targetUser.getCreatedBy().getId().equals(loggedInAdmin.getId())) {
-			throw new RuntimeException("You cannot access this user");
+		if (role == RoleType.ADMIN) {
+			if (targetUser.getCreatedBy() == null || !targetUser.getCreatedBy().getId().equals(loggedInAdmin.getId())) {
+				throw new RuntimeException("You cannot access this user");
+			}
 		}
 
-		List<Device> availableDevices = deviceRepository.findAvailableDevicesForUser(loggedInAdmin.getId(),
-				targetUser.getAssignedSources());
+		List<Device> availableDevices;
+
+		if (role == RoleType.SUPER_ADMIN) {
+			availableDevices = deviceRepository.findAvailableDevicesForSuperAdmin(targetUser.getAssignedSources());
+		} else {
+			availableDevices = deviceRepository.findAvailableDevicesForUser(loggedInAdmin.getId(),
+					targetUser.getAssignedSources());
+		}
 		return availableDevices.stream().filter(device -> Boolean.TRUE.equals(device.getActive()))
 				.map(this::mapToResponse).toList();
 	}
@@ -335,22 +400,26 @@ public class DeviceServiceImpl implements DeviceService {
 		} else {
 			throw new RuntimeException("Access Denied");
 		}
-
+		List<Device> validDevices = devices.stream().filter(d -> d.getMeter() != null).toList();
 		DashboardSummaryResponseDto response = new DashboardSummaryResponseDto();
-
 		// Source Counts
-		response.setWaterCount(devices.stream().filter(d -> d.getSourceType() == SourceType.WATER).count());
-		response.setSolarCount(devices.stream().filter(d -> d.getSourceType() == SourceType.SOLAR).count());
-		response.setGasCount(devices.stream().filter(d -> d.getSourceType() == SourceType.GAS).count());
-		response.setEnergyCount(devices.stream().filter(d -> d.getSourceType() == SourceType.ENERGY).count());
+		response.setWaterCount(
+				validDevices.stream().filter(d -> d.getMeter().getSourceType() == SourceType.WATER).count());
+		response.setSolarCount(
+				validDevices.stream().filter(d -> d.getMeter().getSourceType() == SourceType.SOLAR).count());
+		response.setGasCount(validDevices.stream().filter(d -> d.getMeter().getSourceType() == SourceType.GAS).count());
+		response.setEnergyCount(
+				validDevices.stream().filter(d -> d.getMeter().getSourceType() == SourceType.ENERGY).count());
 
 		// Technology Counts
-		response.setWifiCount(devices.stream().filter(d -> d.getTechnologyType() == TechnologyType.WIFI).count());
+		response.setWifiCount(
+				validDevices.stream().filter(d -> d.getMeter().getTechnologyType() == TechnologyType.WIFI).count());
 		response.setEthernetCount(
-				devices.stream().filter(d -> d.getTechnologyType() == TechnologyType.ETHERNET).count());
-		response.setNbIotCount(devices.stream().filter(d -> d.getTechnologyType() == TechnologyType.NB_IOT).count());
-		response.setFourGCount(devices.stream().filter(d -> d.getTechnologyType() == TechnologyType.FOUR_G).count());
-
+				validDevices.stream().filter(d -> d.getMeter().getTechnologyType() == TechnologyType.ETHERNET).count());
+		response.setNbIotCount(
+				validDevices.stream().filter(d -> d.getMeter().getTechnologyType() == TechnologyType.NB_IOT).count());
+		response.setFourGCount(
+				validDevices.stream().filter(d -> d.getMeter().getTechnologyType() == TechnologyType.FOUR_G).count());
 		return response;
 	}
 
@@ -388,12 +457,15 @@ public class DeviceServiceImpl implements DeviceService {
 
 	private DeviceDetailsResponseDto mapToDeviceDetailsResponse(Device device) {
 
+		Meter meter = device.getMeter();
+
 		return DeviceDetailsResponseDto.builder().id(device.getId()).deviceId(device.getDeviceId())
-				.deviceName(device.getDeviceName()).meterName(device.getMeterName())
+				.deviceName(device.getDeviceName()).meterName(meter != null ? meter.getMeterName() : null)
 
 				// Device Information
-				.sourceType(device.getSourceType()).technologyType(device.getTechnologyType())
-				.status(device.getStatus())
+				.sourceType(meter != null ? meter.getSourceType() : null)
+				.technologyType(meter != null ? meter.getTechnologyType() : null)
+				.status(meter != null ? meter.getStatus() : null)
 
 				// Runtime
 				.online(device.getOnline()).active(device.getActive()).lastSyncTime(device.getLastSyncTime())
@@ -418,11 +490,11 @@ public class DeviceServiceImpl implements DeviceService {
 				.city(device.getCity()).state(device.getState()).meterLocation(device.getMeterLocation())
 
 				// Meter Configuration
-				.applicationOfAmi(device.getApplicationOfAmi()).amiApplicationType(device.getAmiApplicationType())
-				.diameterSize(device.getDiameterSize()).literPerPulse(device.getLiterPerPulse())
-				.meterStartReading(device.getMeterStartReading())
-
-				.build();
+				.applicationOfAmi(meter != null ? meter.getApplicationOfAmi() : null)
+				.amiApplicationType(meter != null ? meter.getAmiApplicationType() : null)
+				.diameterSize(meter != null ? meter.getDiameterSize() : null)
+				.literPerPulse(meter != null ? meter.getLiterPerPulse() : null)
+				.meterStartReading(meter != null ? meter.getMeterStartReading() : null).build();
 	}
 
 	@Override
@@ -431,6 +503,9 @@ public class DeviceServiceImpl implements DeviceService {
 		User loggedInUser = getLoggedInUser();
 
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
+		if (!Boolean.TRUE.equals(device.getActive())) {
+			throw new RuntimeException("Device already deleted");
+		}
 
 		// SUPER ADMIN
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
@@ -492,12 +567,13 @@ public class DeviceServiceImpl implements DeviceService {
 	public void restoreDevice(Long deviceId) {
 		User loggedInUser = getLoggedInUser();
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
+
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
 			device.setActive(true);
 			saveAudit(device, "DEVICE_RESTORED", "Device restored from recycle bin",
 					loggedInUser.getFirstName() + " " + loggedInUser.getLastName());
 		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
-			if (!device.getAssignedAdmin().getId().equals(loggedInUser.getId())) {
+			if (device.getAssignedAdmin() == null || !device.getAssignedAdmin().getId().equals(loggedInUser.getId())) {
 				throw new RuntimeException("Access Denied");
 			}
 			device.setActive(true);
@@ -522,11 +598,15 @@ public class DeviceServiceImpl implements DeviceService {
 			}
 		}
 
+		Meter meter = device.getMeter();
+		if (meter == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
+
 		return DeviceUpdateFormResponseDto.builder()
 
 				// Device Information
-				.deviceName(device.getDeviceName()).meterName(device.getMeterName())
-				.billingType(device.getBillingType())
+				.deviceName(device.getDeviceName()).meterName(meter.getMeterName()).billingType(device.getBillingType())
 
 				// Customer Information
 				.customerName(device.getCustomerName()).customerAddress(device.getCustomerAddress())
@@ -534,8 +614,8 @@ public class DeviceServiceImpl implements DeviceService {
 				.city(device.getCity()).state(device.getState()).meterLocation(device.getMeterLocation())
 
 				// Meter Configuration
-				.applicationOfAmi(device.getApplicationOfAmi()).amiApplicationType(device.getAmiApplicationType())
-				.diameterSize(device.getDiameterSize()).literPerPulse(device.getLiterPerPulse()).build();
+				.applicationOfAmi(meter.getApplicationOfAmi()).amiApplicationType(meter.getAmiApplicationType())
+				.diameterSize(meter.getDiameterSize()).literPerPulse(meter.getLiterPerPulse()).build();
 	}
 
 	@Override
@@ -561,9 +641,13 @@ public class DeviceServiceImpl implements DeviceService {
 			}
 		}
 
+		Meter meter = device.getMeter();
+		if (meter == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
+
 		// Device Information
 		device.setDeviceName(request.getDeviceName());
-		device.setMeterName(request.getMeterName());
 
 		device.setBillingType(request.getBillingType());
 
@@ -580,14 +664,15 @@ public class DeviceServiceImpl implements DeviceService {
 
 		device.setMeterLocation(request.getMeterLocation());
 
-		// Meter Configuration
-		device.setApplicationOfAmi(request.getApplicationOfAmi());
+		meter.setMeterName(request.getMeterName());
 
-		device.setAmiApplicationType(request.getAmiApplicationType());
+		meter.setApplicationOfAmi(request.getApplicationOfAmi());
 
-		device.setDiameterSize(request.getDiameterSize());
+		meter.setAmiApplicationType(request.getAmiApplicationType());
 
-		device.setLiterPerPulse(request.getLiterPerPulse());
+		meter.setDiameterSize(request.getDiameterSize());
+
+		meter.setLiterPerPulse(request.getLiterPerPulse());
 
 		Device updatedDevice = deviceRepository.save(device);
 
@@ -646,6 +731,42 @@ public class DeviceServiceImpl implements DeviceService {
 						.description(audit.getDescription()).performedBy(audit.getPerformedBy())
 						.actionTime(audit.getActionTime()).build())
 				.toList();
+	}
+
+	@Override
+	@Transactional
+	public void assignAdminToDevice(Long deviceId, Long adminId) {
+
+		User loggedInUser = getLoggedInUser();
+		if (loggedInUser.getRole() != RoleType.SUPER_ADMIN) {
+			throw new RuntimeException("Only Super Admin can assign admin");
+		}
+		Device device = deviceRepository.findById(deviceId)
+				.orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+
+		if (device.getAssignedAdmin() != null) {
+			throw new RuntimeException("Device is already assigned to an admin");
+		}
+
+		User admin = userRepository.findById(adminId)
+				.orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
+		if (admin.getRole() != RoleType.ADMIN) {
+			throw new RuntimeException("Selected user is not an admin");
+		}
+		validateAdminSourceAccess(device, admin);
+		device.setAssignedAdmin(admin);
+		deviceRepository.save(device);
+	}
+
+	private void validateAdminSourceAccess(Device device, User admin) {
+
+		if (device.getMeter() == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
+		SourceType sourceType = device.getMeter().getSourceType();
+		if (admin.getAssignedSources() == null || !admin.getAssignedSources().contains(sourceType)) {
+			throw new RuntimeException("Admin is not assigned to source type " + sourceType);
+		}
 	}
 
 }

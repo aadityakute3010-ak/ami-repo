@@ -1,4 +1,4 @@
-package com.ami.serviceImpl;
+package com.ami.service.impl;
 
 import java.util.List;
 
@@ -48,6 +48,10 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 		// 1. Get Device
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
 
+		if (!Boolean.TRUE.equals(device.getActive())) {
+			throw new RuntimeException("Device is inactive");
+		}
+
 		// 2. ROLE CHECK
 		if (loggedInUser.getRole() == RoleType.ADMIN) {
 
@@ -74,6 +78,10 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 			throw new RuntimeException("Attribute already exists for this device");
 		}
 
+		if (request.getAttributeValue() == null || request.getAttributeValue().isBlank()) {
+			throw new RuntimeException("Attribute value is required");
+		}
+
 		// 5. Create entity
 		DeviceAttribute attribute = DeviceAttribute.builder().device(device).attributeKey(key)
 				.attributeValue(request.getAttributeValue()).build();
@@ -91,6 +99,10 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 		User loggedInUser = getLoggedInUser();
 
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
+
+		if (!Boolean.TRUE.equals(device.getActive())) {
+			throw new RuntimeException("Device is inactive");
+		}
 
 		// 1. ACCESS CONTROL
 		if (loggedInUser.getRole() == RoleType.ADMIN) {
@@ -123,12 +135,12 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 		}
 
 		// prevent duplicates
-		if (attributeKeyRepository.existsByKeyName(request.getKeyName())) {
+		if (attributeKeyRepository.existsByKeyNameIgnoreCase(request.getKeyName())) {
 			throw new RuntimeException("Attribute key already exists");
 		}
 
-		AttributeKey key = AttributeKey.builder().keyName(request.getKeyName()).unit(request.getUnit()).category(request.getCategory()).active(true)
-				.build();
+		AttributeKey key = AttributeKey.builder().keyName(request.getKeyName()).unit(request.getUnit())
+				.category(request.getCategory()).active(true).build();
 
 		return attributeKeyRepository.save(key);
 	}
@@ -147,12 +159,13 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 
 		// prevent duplicate name (if changed)
 		if (!key.getKeyName().equals(request.getKeyName())
-				&& attributeKeyRepository.existsByKeyName(request.getKeyName())) {
+				&& attributeKeyRepository.existsByKeyNameIgnoreCase(request.getKeyName())) {
 			throw new RuntimeException("Attribute key already exists");
 		}
 
 		key.setKeyName(request.getKeyName());
 		key.setUnit(request.getUnit());
+		key.setCategory(request.getCategory());
 
 		return attributeKeyRepository.save(key);
 	}

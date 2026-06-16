@@ -44,5 +44,7 @@ public interface DeviceService {
 	List<DeviceAuditResponseDto> getDeviceAudit(Long deviceId);
 
 	DeviceUpdateFormResponseDto getDeviceForUpdate(Long deviceId);
+	
+	void assignAdminToDevice(Long deviceId, Long adminId);
 
 }
