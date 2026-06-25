@@ -68,10 +68,6 @@ public class User extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean active = true;
     
     @Column(nullable = false)
     @Builder.Default

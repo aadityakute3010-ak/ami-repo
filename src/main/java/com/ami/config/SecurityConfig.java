@@ -29,8 +29,13 @@ public class SecurityConfig {
 		http.csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/api/auth/**", "/api/auth/forgot-password", "/api/auth/reset-password",
-								"/login/oauth2/**", "/oauth2/**")
+						.requestMatchers(
+								"/api/auth/login",
+								"/api/auth/logout",
+								"/api/auth/forgot-password",
+								"/api/auth/reset-password",
+								"/login/oauth2/**",
+								"/oauth2/**")
 						.permitAll().requestMatchers(HttpMethod.POST, "/telemetry/saveTelemetry").permitAll()
 						.anyRequest().authenticated())
 				.oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler))

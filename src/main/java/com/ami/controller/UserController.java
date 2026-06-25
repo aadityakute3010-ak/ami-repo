@@ -3,23 +3,32 @@ package com.ami.controller;
 import com.ami.dto.requests.AdminUpdateUserRequestDto;
 import com.ami.dto.requests.CreateUserRequest;
 import com.ami.dto.requests.UpdateProfileRequestDto;
+import com.ami.dto.requests.UserFilterRequestDto;
 import com.ami.dto.responses.AdminUpdateUserResponseDto;
+import com.ami.dto.responses.BulkUploadResponseDto;
 import com.ami.dto.responses.CreateUserResponseDto;
 import com.ami.dto.responses.CreationOptionsResponse;
+import com.ami.dto.responses.ExportFileResponseDto;
 import com.ami.dto.responses.MyInfoResponseDto;
 import com.ami.dto.responses.PagedUserResponseDto;
+import com.ami.dto.responses.UserDashboardResponseDto;
 import com.ami.dto.responses.UserDetailsResponseDto;
 import com.ami.dto.responses.UserListResponseDto;
-import com.ami.enums.RoleType;
+import com.ami.enums.DeleteType;
 import com.ami.enums.SourceType;
+import com.ami.enums.StatusType;
 import com.ami.service.UserService;
 
 import jakarta.validation.Valid;
 
 import java.util.List;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/users")
@@ -41,12 +50,6 @@ public class UserController {
 	@GetMapping("/creation-options")
 	public CreationOptionsResponse getCreationOptions() {
 		return userService.getCreationOptions();
-	}
-
-	@GetMapping("/getAllUsers")
-	public PagedUserResponseDto getUsers(@RequestParam(required = false) RoleType role,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-		return userService.getUsers(role, page, size);
 	}
 
 	@GetMapping("/{userId}")
@@ -75,26 +78,15 @@ public class UserController {
 		return userService.adminUpdateUser(userId, request);
 	}
 
-	@DeleteMapping("/soft-delete/{userId}")
-	public String softDeleteUser(@PathVariable Long userId) {
-		return userService.softDeleteUser(userId);
+	@DeleteMapping("/deleteUser/{userId}")
+	public ResponseEntity<String> deleteUser(@PathVariable Long userId, @RequestParam DeleteType deleteType,
+			@RequestParam(required = false) StatusType status) {
+		return ResponseEntity.ok(userService.deleteUser(userId, deleteType, status));
 	}
 
-	@DeleteMapping("/hard-delete/{userId}")
-	public String hardDeleteUser(@PathVariable Long userId) {
-		return userService.hardDeleteUser(userId);
-	}
-
-	@GetMapping("/searchUser")
-	public PagedUserResponseDto searchUsers(@RequestParam String keyword, @RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
-		return userService.searchUsers(keyword, page, size);
-	}
-
-	@GetMapping("/status")
-	public PagedUserResponseDto getUsersByStatus(@RequestParam Boolean active,
-			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-		return userService.getUsersByStatus(active, page, size);
+	@GetMapping("/getUsers")
+	public PagedUserResponseDto getUsers(UserFilterRequestDto request) {
+		return userService.getUsers(request);
 	}
 
 	// to get Admins for assigning to Device
@@ -102,6 +94,26 @@ public class UserController {
 	public ResponseEntity<List<UserListResponseDto>> getEligibleAdmins(@RequestParam SourceType sourceType,
 			@RequestParam(required = false) String search) {
 		return ResponseEntity.ok(userService.getEligibleAdminsBySource(sourceType, search));
-	} 
- 
-} 
+	}
+
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+	@GetMapping("/dashboard")
+	public UserDashboardResponseDto getUserDashboard() {
+		return userService.getDashboard();
+	}
+
+	@PostMapping(value = "/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+	public BulkUploadResponseDto bulkUploadUsers(@RequestParam("file") MultipartFile file) {
+		return userService.bulkUploadUsers(file);
+	}
+
+	@GetMapping("/export")
+	public ResponseEntity<byte[]> exportUsers(@RequestParam(defaultValue = "csv") String fileType) {
+		ExportFileResponseDto exportFile = userService.exportUsers(fileType);
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + exportFile.getFileName())
+				.contentType(MediaType.parseMediaType(exportFile.getContentType())).body(exportFile.getFile());
+	}
+
+}

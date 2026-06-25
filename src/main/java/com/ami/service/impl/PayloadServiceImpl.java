@@ -19,6 +19,7 @@ import com.ami.dto.responses.PayloadSummaryDTO;
 import com.ami.entity.Device;
 import com.ami.entity.Payload;
 import com.ami.entity.User;
+import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.PayloadStatus;
 import com.ami.enums.RoleType;
 import com.ami.exception.ResourceNotFoundException;
@@ -154,7 +155,6 @@ public class PayloadServiceImpl implements PayloadService {
 				Sort.by(Sort.Direction.DESC, "receivedAt"));
 
 		Page<Payload> payloads;
-		
 
 		// SUPER ADMIN
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
@@ -222,16 +222,16 @@ public class PayloadServiceImpl implements PayloadService {
 	@Override
 	@Transactional
 	public void receivePayload(TelemetryIngestRequest request) {
-		
+
 		if (request.getDeviceId() == null || request.getDeviceId().isBlank()) {
-		    throw new RuntimeException("Device Id is missing");
+			throw new RuntimeException("Device Id is missing");
 		}
-		
+
 		Device device = deviceRepository.findByDeviceId(request.getDeviceId()).orElseThrow(
 				() -> new ResourceNotFoundException("Device not found with deviceId : " + request.getDeviceId()));
-		
-		if(device.getMeter()==null){
-		    throw new RuntimeException("Meter not configured for device");
+
+		if (device.getMeter() == null) {
+			throw new RuntimeException("Meter not configured for device");
 		}
 
 		PayloadStatus status = PayloadStatus.SUCCESS;
@@ -274,10 +274,10 @@ public class PayloadServiceImpl implements PayloadService {
 			status = PayloadStatus.FAILED;
 			failureReason = "Invalid signal power";
 		}
-		
+
 		else if (request.getDeviceId() == null || request.getDeviceId().isBlank()) {
-		    status = PayloadStatus.FAILED;
-		    failureReason = "Device Id is missing";
+			status = PayloadStatus.FAILED;
+			failureReason = "Device Id is missing";
 		}
 
 		// =====================================================
@@ -323,9 +323,26 @@ public class PayloadServiceImpl implements PayloadService {
 
 			device.setOnline(true);
 			device.setLastSyncTime(LocalDateTime.now());
-
+			device.setHealthStatus(determineHealth(request.getBatteryPercentage(), request.getSignalQuality()));
 			deviceRepository.save(device);
 		}
+	}
+
+	private DeviceHealthStatus determineHealth(Integer batteryLevel, Integer signalStrength) {
+
+		if (batteryLevel == null || signalStrength == null) {
+			return DeviceHealthStatus.WARNING;
+		}
+
+		if (batteryLevel < 20 || signalStrength < 20) {
+			return DeviceHealthStatus.CRITICAL;
+		}
+
+		if (batteryLevel < 50 || signalStrength < 50) {
+			return DeviceHealthStatus.WARNING;
+		}
+
+		return DeviceHealthStatus.HEALTHY;
 	}
 
 	@Override

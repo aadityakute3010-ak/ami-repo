@@ -1,7 +1,6 @@
 package com.ami.entity;
 
 import java.time.LocalDateTime;
-import com.ami.enums.BillingType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,6 +20,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.ami.enums.DeviceHealthStatus;
+import jakarta.validation.constraints.PositiveOrZero;
 
 @Entity
 @Table(name = "devices")
@@ -50,9 +51,6 @@ public class Device extends BaseEntity {
 	@Column(nullable = false)
 	private String deviceName;
 
-	@Enumerated(EnumType.STRING)
-	private BillingType billingType;
-
 	// Customer Information
 
 	private String customerName;
@@ -71,9 +69,15 @@ public class Device extends BaseEntity {
 
 	private String meterLocation;
 
-	// Runtime Information
+	// Communication Settings
 
-	private Boolean active;
+	@Column(length = 50)
+	private String wakeupTime;
+
+	@PositiveOrZero(message = "Data sample count cannot be negative")
+	private Integer dataSampleCount;
+
+	// Runtime Information
 
 	private Boolean online;
 
@@ -95,5 +99,11 @@ public class Device extends BaseEntity {
 
 	@OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
 	@JoinColumn(name = "meter_id")
-	private Meter meter; 
+	private Meter meter;
+
+	@Builder.Default
+	@Enumerated(EnumType.STRING)
+	@Column(name = "health_status")
+	private DeviceHealthStatus healthStatus = DeviceHealthStatus.OFFLINE;
+
 }

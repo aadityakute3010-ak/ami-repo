@@ -12,6 +12,7 @@ import com.ami.entity.AttributeKey;
 import com.ami.entity.Device;
 import com.ami.entity.DeviceAttribute;
 import com.ami.entity.User;
+import com.ami.enums.DeviceStatus;
 import com.ami.enums.RoleType;
 import com.ami.repository.AttributeKeyRepository;
 import com.ami.repository.DeviceAttributeRepository;
@@ -48,7 +49,7 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 		// 1. Get Device
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
 
-		if (!Boolean.TRUE.equals(device.getActive())) {
+		if (device.getMeter().getStatus().equals(DeviceStatus.INACTIVE)) {
 			throw new RuntimeException("Device is inactive");
 		}
 
@@ -100,7 +101,7 @@ public class DeviceAttributeServiceImpl implements DeviceAttributeService {
 
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
 
-		if (!Boolean.TRUE.equals(device.getActive())) {
+		if (device.getMeter().getStatus().equals(DeviceStatus.INACTIVE)) {
 			throw new RuntimeException("Device is inactive");
 		}
 

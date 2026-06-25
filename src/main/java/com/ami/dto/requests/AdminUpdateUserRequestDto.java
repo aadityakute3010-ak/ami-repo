@@ -19,9 +19,6 @@ public class AdminUpdateUserRequestDto {
     private String address;
     private String state;
     private String city; 
-
-    private Boolean active;
-
     private Set<SourceType> assignedSources;
     private StatusType status;
 
@@ -82,14 +79,6 @@ public class AdminUpdateUserRequestDto {
 
     public void setCity(String city) {
         this.city = city;
-    }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
     }
 
     public Set<SourceType> getAssignedSources() {

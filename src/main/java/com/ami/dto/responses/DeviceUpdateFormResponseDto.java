@@ -1,9 +1,7 @@
 package com.ami.dto.responses;
 
-import com.ami.enums.ApplicationOfAmi;
-import com.ami.enums.BillingType;
-import com.ami.enums.DiameterSize;
-import com.ami.enums.AmiApplicationType;
+import com.ami.enums.SourceType;
+import com.ami.enums.TechnologyType;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,8 +19,6 @@ public class DeviceUpdateFormResponseDto {
     private String deviceName;
 
     private String meterName;
-
-    private BillingType billingType;
 
     // Customer Information
 
@@ -42,15 +38,45 @@ public class DeviceUpdateFormResponseDto {
 
     private String meterLocation;
 
+    // Communication Settings
+
+    private String wakeupTime;
+
+    private Integer dataSampleCount;
+
     // Meter Configuration
 
-    private ApplicationOfAmi applicationOfAmi; 
+    private SourceType sourceType;
 
-    private AmiApplicationType amiApplicationType;
+    private TechnologyType technologyType;
 
-    private DiameterSize diameterSize;
+    private String meterType;
+
+    private String application;
+
+    // WATER
+
+    private String diameterSize;
 
     private Double literPerPulse;
+
+    // ENERGY
+
+    private String ctRatio;
+
+    private String ptRatio;
+
+    private String voltageClass;
+
+    // SOLAR
+
+    private String inverterType;
+
+    private String plantCapacity;
+
+    private Integer panelCount;
+
+    // COMMON
 
     private Double meterStartReading;
 }

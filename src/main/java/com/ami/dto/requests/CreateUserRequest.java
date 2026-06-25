@@ -2,15 +2,27 @@ package com.ami.dto.requests;
 
 import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
+import com.ami.enums.StatusType;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.Set;
 
+@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor 
 public class CreateUserRequest {
 
 	@NotBlank(message = "First name is required")
@@ -48,9 +60,9 @@ public class CreateUserRequest {
 
     @NotEmpty(message = "At least one source is required") 
     private Set<SourceType> assignedSources;
-
-    public CreateUserRequest() {
-    }
+    
+    @NotNull(message = "Status cannot be NULL")
+    private StatusType status;
 
     public String getFirstName() {
         return firstName;

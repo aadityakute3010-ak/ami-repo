@@ -15,5 +15,5 @@ public class CreateDevicesRequestDto {
 
     @NotEmpty(message = "At least one device is required")
     @Valid 
-    private List<CreateDeviceRequestDto> devices;
+    private List<CreateDeviceRequestDto> devices; 
 } 

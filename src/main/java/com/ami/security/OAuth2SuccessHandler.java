@@ -6,6 +6,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import com.ami.entity.User;
+import com.ami.enums.StatusType;
 import com.ami.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,23 +30,17 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 		User user = userRepository.findByEmail(email).orElse(null);
 
 		if (user == null) {
-			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-			response.setContentType("application/json");
-			response.getWriter().write("""
-				{"message":"User is not registered in the system"}
-				""");
+			response.sendRedirect("http://localhost:5173/unauthorized");
 			return;
 		}
-		
-		if (!Boolean.TRUE.equals(user.getActive())) {
-		    throw new RuntimeException("Account is inactive");
+
+		if (user.getStatus().equals(StatusType.INACTIVE)) {
+			response.sendRedirect("http://localhost:5173/unauthorized");
+			return;
 		}
 
 		String jwt = jwtUtil.generateToken(user);
 
-		response.setContentType("application/json");
-		response.setCharacterEncoding("UTF-8");
-
-		response.getWriter().write("{\"token\":\"" + jwt + "\"}");
+		response.sendRedirect("http://localhost:5173/oauth-success?token=" + jwt);
 	}
 }

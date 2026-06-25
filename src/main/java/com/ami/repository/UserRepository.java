@@ -3,8 +3,11 @@ package com.ami.repository;
 import com.ami.entity.User;
 import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
+import com.ami.enums.StatusType;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -22,8 +25,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	Boolean existsByUserName(String userName);
 
-	List<User> findByRole(RoleType role);
-
 	List<User> findByCreatedByAndRole(User createdBy, RoleType role);
 
 	List<User> findByRoleAndCreatedBy(RoleType role, User createdBy);
@@ -36,57 +37,225 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	Page<User> findByRoleAndCreatedBy(RoleType role, User createdBy, Pageable pageable);
 
-	Page<User> findByActiveAndCreatedBy(Boolean active, User createdBy, Pageable pageable);
+	Page<User> findByStatus(StatusType status, Pageable pageable);
 
-	Page<User> findByActive(Boolean active, Pageable pageable);
+	Page<User> findByStatusAndCreatedBy(StatusType status, User createdBy, Pageable pageable);
 
-	// SEARCH FOR ADMIN
+	List<User> findByCreatedBy(User createdBy);
+
 	@Query("""
-			    SELECT u FROM User u
-			    WHERE u.createdBy.id = :adminId
-			    AND (
-			        LOWER(u.userName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.phoneNo) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.city) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.state) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			    )
+			    SELECT COUNT(u) > 0
+			    FROM User u
+			    WHERE LOWER(u.email) = LOWER(:email)
+			    AND u.id <> :userId
 			""")
-	Page<User> searchUsersForAdmin(@Param("keyword") String keyword, @Param("adminId") Long adminId, Pageable pageable);
+	boolean existsEmailForOtherUser(@Param("email") String email, @Param("userId") Long userId);
 
-	// SEARCH FOR SUPER ADMIN
 	@Query("""
-			    SELECT u FROM User u
-			    WHERE
-			        LOWER(u.userName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.phoneNo) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.city) LIKE LOWER(CONCAT('%', :keyword, '%'))
-			        OR LOWER(u.state) LIKE LOWER(CONCAT('%', :keyword, '%'))
+			    SELECT COUNT(u) > 0
+			    FROM User u
+			    WHERE LOWER(u.userName) = LOWER(:userName)
+			    AND u.id <> :userId
 			""")
-	Page<User> searchUsersForSuperAdmin(@Param("keyword") String keyword, Pageable pageable);
+	boolean existsUserNameForOtherUser(@Param("userName") String userName, @Param("userId") Long userId);
 
 	@Query("""
-			SELECT DISTINCT u
+			SELECT u
 			FROM User u
-			JOIN u.assignedSources s
-			WHERE u.role = :role
-			AND s = :sourceType
+			WHERE
+
+			(:role IS NULL OR u.role = :role)
+
+			AND
+
+			(:status IS NULL OR u.status = :status)
+
+			AND
+			(
+			    :keyword IS NULL
+
+			    OR LOWER(u.firstName)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(u.lastName)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(u.email)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(u.userName)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(CONCAT(u.firstName,' ',u.lastName))
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+			)
 			""")
-	List<User> findAdminsBySourceType(RoleType role, SourceType sourceType);
+	Page<User> findUsersWithFilters(String keyword, RoleType role, StatusType status, Pageable pageable);
+
+	@Query("""
+			SELECT u
+			FROM User u
+			WHERE
+
+			u.createdBy.id = :adminId
+
+			AND
+
+			(:role IS NULL OR u.role = :role)
+
+			AND
+
+			(:status IS NULL OR u.status = :status)
+
+			AND
+			(
+			    :keyword IS NULL
+
+			    OR LOWER(u.firstName)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(u.lastName)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(u.email)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(u.userName)
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+
+			    OR LOWER(CONCAT(u.firstName,' ',u.lastName))
+			        LIKE LOWER(CONCAT('%', :keyword, '%'))
+			)
+			""")
+	Page<User> findUsersWithFiltersForAdmin(Long adminId, String keyword, RoleType role, StatusType status,
+			Pageable pageable);
 
 	@Query("""
 			    SELECT u FROM User u
 			    WHERE u.role = :role
+			    AND u.status = com.ami.enums.StatusType.ACTIVE
 			    AND :sourceType MEMBER OF u.assignedSources
 			    AND (
 			        :search IS NULL OR
 			        LOWER(u.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR
 			        LOWER(u.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR
-			        LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+			        LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) OR
+			        LOWER(u.userName) LIKE LOWER(CONCAT('%', :search, '%'))
 			    )
 			""")
 	List<User> findEligibleAdmins(@Param("role") RoleType role, @Param("sourceType") SourceType sourceType,
 			@Param("search") String search);
+
+	long count();
+
+	long countByStatus(StatusType status);
+
+	long countByRole(RoleType role);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			""")
+	long countByCreatedBy(@Param("adminId") Long adminId);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.status = :status
+			""")
+	long countByCreatedByAndStatus(@Param("adminId") Long adminId, @Param("status") StatusType status);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.role = :role
+			""")
+	long countByCreatedByAndRole(@Param("adminId") Long adminId, @Param("role") RoleType role);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.assignedSources IS NOT EMPTY
+			""")
+	long countAssignedUsersByAdmin(@Param("adminId") Long adminId);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.createdAt >= :start
+			""")
+	long countCreatedTodayByAdmin(@Param("adminId") Long adminId, @Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.status = :status
+			AND u.createdAt >= :start
+			""")
+	long countCreatedTodayByAdminAndStatus(@Param("adminId") Long adminId, @Param("status") StatusType status,
+			@Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.role = :role
+			AND u.createdAt >= :start
+			""")
+	long countCreatedTodayByAdminAndRole(@Param("adminId") Long adminId, @Param("role") RoleType role,
+			@Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdBy.id = :adminId
+			AND u.assignedSources IS NOT EMPTY
+			AND u.createdAt >= :start
+			""")
+	long countAssignedUsersCreatedTodayByAdmin(@Param("adminId") Long adminId, @Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.assignedSources IS NOT EMPTY
+			""")
+	long countAssignedUsers();
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.createdAt >= :start
+			""")
+	long countCreatedToday(@Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.status = :status
+			AND u.createdAt >= :start
+			""")
+	long countCreatedTodayByStatus(@Param("status") StatusType status, @Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.role = :role
+			AND u.createdAt >= :start
+			""")
+	long countCreatedTodayByRole(@Param("role") RoleType role, @Param("start") LocalDateTime start);
+
+	@Query("""
+			SELECT COUNT(u)
+			FROM User u
+			WHERE u.assignedSources IS NOT EMPTY
+			AND u.createdAt >= :start
+			""")
+	long countAssignedUsersCreatedToday(@Param("start") LocalDateTime start);
 
 }

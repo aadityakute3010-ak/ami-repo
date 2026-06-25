@@ -1,6 +1,5 @@
 package com.ami.dto.requests;
 
-import com.ami.enums.BillingType;
 import jakarta.validation.Valid;
 import lombok.Data; 
 
@@ -12,9 +11,10 @@ public class CreateDeviceRequestDto {
 
     @Valid
     private MeterInfoDto meter;
+    
+    @Valid
+    private CommunicationSettingsDto communication;
 
     @Valid
-    private CustomerInfoDto customer;
-
-    private BillingType billingType;
-}  
+    private CustomerInfoDto customer; 
+}   

@@ -1,12 +1,8 @@
 package com.ami.dto.responses;
 
 import java.time.LocalDateTime;
-
-import com.ami.enums.ApplicationOfAmi;
-import com.ami.enums.BillingType;
+import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.DeviceStatus;
-import com.ami.enums.DiameterSize;
-import com.ami.enums.AmiApplicationType;
 import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
 
@@ -21,74 +17,92 @@ import lombok.NoArgsConstructor;
 @Builder
 public class DeviceResponseDto {
 
-    private Long id;
+	private Long id;
 
-    // Device Identity
+	// Device Identity
 
-    private String deviceId;
+	private String deviceId;
 
-    private String deviceName;
+	private String deviceName;
 
-    private String meterName;
+	private String meterName;
 
-    private String macAddress;
+	private String macAddress;
 
-    private String serialNumber;
+	private String serialNumber;
 
-    // Device Information
+	// Device Information
 
-    private TechnologyType technologyType;
+	private TechnologyType technologyType;
 
-    private SourceType sourceType;
+	private SourceType sourceType;
 
-    private DeviceStatus status;
+	private DeviceStatus status;
 
-    // Runtime
+	// Runtime
+	private LocalDateTime lastSyncTime;
 
-    private Boolean active;
+	// Customer Information
 
-    private Boolean online;
+	private String customerName;
 
-    private LocalDateTime lastSyncTime;
+	private String customerAddress;
 
-    // Customer Information
+	private String buildingOrWing;
 
-    private String customerName;
+	private String area;
 
-    private String customerAddress;
+	private String zone;
 
-    private String buildingOrWing;
+	private String city;
 
-    private String area;
+	private String state;
 
-    private String zone;
+	private String meterLocation;
 
-    private String city;
+	// Communication Settings
+	private String wakeupTime;
 
-    private String state;
+	private Integer dataSampleCount;
 
-    private String meterLocation;
-    
-    private BillingType billingType; 
+	// Meter Information
+	private Double meterStartReading;
 
-    // Meter Information
-    private ApplicationOfAmi applicationOfAmi; 
+	// Dynamic Meter Information
 
-    private AmiApplicationType amiApplicationType;
+	private String meterType;
 
-    private DiameterSize diameterSize;
+	private String application;
 
-    private Double literPerPulse;
+	// WATER
+	private String diameterSize;
 
-    private Double meterStartReading;
+	private Double literPerPulse;
 
-    // Assignment
+	// ENERGY
+	private String ctRatio;
 
-    private String assignedAdminName;
+	private String ptRatio;
 
-    private String assignedUserName;
+	private String voltageClass;
 
-    // Audit Information
+	// SOLAR
+	private String inverterType;
 
-    private LocalDateTime createdAt;
+	private String plantCapacity;
+
+	private Integer panelCount;
+
+	// Assignment
+
+	private String assignedAdminName;
+
+	private String assignedUserName;
+
+	// Audit Information
+
+	private LocalDateTime createdAt;
+
+	private DeviceHealthStatus healthStatus;
+
 }

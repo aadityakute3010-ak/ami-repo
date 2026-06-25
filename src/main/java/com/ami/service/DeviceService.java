@@ -1,15 +1,21 @@
 package com.ami.service;
 
 import java.util.List;
+
+import org.springframework.web.multipart.MultipartFile;
+
 import com.ami.dto.requests.CreateDevicesRequestDto;
-import com.ami.dto.requests.UpdateDeviceLocationRequestDto;
 import com.ami.dto.requests.UpdateDeviceRequestDto;
 import com.ami.dto.responses.DashboardSummaryResponseDto;
 import com.ami.dto.responses.DeviceAuditResponseDto;
+import com.ami.dto.responses.DeviceBulkUploadResponseDto;
+import com.ami.dto.responses.DeviceDashboardResponseDto;
 import com.ami.dto.responses.DeviceDetailsResponseDto;
 import com.ami.dto.responses.DeviceResponseDto;
 import com.ami.dto.responses.DeviceUpdateFormResponseDto;
+import com.ami.dto.responses.ExportFileResponseDto;
 import com.ami.dto.responses.PagedDeviceResponseDto;
+import com.ami.enums.DeleteType;
 import com.ami.enums.DeviceStatus;
 import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
@@ -29,22 +35,22 @@ public interface DeviceService {
 
 	DeviceDetailsResponseDto getDeviceDetails(Long deviceId);
 
-	void softDeleteDevice(Long deviceId);
-
-	void hardDeleteDevice(Long deviceId);
-
-	PagedDeviceResponseDto getDeletedDevices(int page, int size);
-
-	void restoreDevice(Long deviceId);
+	String deleteDevice(Long deviceId, DeleteType deleteType, DeviceStatus status);
 
 	DeviceResponseDto updateDevice(Long deviceId, UpdateDeviceRequestDto request);
-
-	DeviceResponseDto updateDeviceLocation(Long deviceId, UpdateDeviceLocationRequestDto request);
 
 	List<DeviceAuditResponseDto> getDeviceAudit(Long deviceId);
 
 	DeviceUpdateFormResponseDto getDeviceForUpdate(Long deviceId);
-	
+
 	void assignAdminToDevice(Long deviceId, Long adminId);
+
+	DeviceDashboardResponseDto getDeviceDashboard();
+
+	DeviceBulkUploadResponseDto bulkUploadDevices(MultipartFile file);
+
+	byte[] exportDevicesToCsv();
+	
+	ExportFileResponseDto exportDevices(String fileType); 
 
 }

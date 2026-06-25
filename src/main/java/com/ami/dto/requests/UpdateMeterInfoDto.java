@@ -2,39 +2,49 @@ package com.ami.dto.requests;
 
 import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
-import jakarta.validation.constraints.NotNull;
+
 import lombok.Data;
 
 @Data
-public class MeterInfoDto {
+public class UpdateMeterInfoDto {
 
-    
+    // Locked Meter Fields
+    // SUPER_ADMIN only
+
     private String meterName;
 
-    @NotNull
     private SourceType sourceType;
 
-    @NotNull
     private TechnologyType technologyType;
 
-    // Common dynamic fields
+    private Double meterStartReading;
+
+    // Dynamic Meter Fields
+    // SUPER_ADMIN + ADMIN
+
     private String meterType;
+
     private String application;
 
     // WATER
+
     private String diameterSize;
+
     private Double literPerPulse;
 
     // ENERGY
+
     private String ctRatio;
+
     private String ptRatio;
+
     private String voltageClass;
 
     // SOLAR
-    private String inverterType;
-    private String plantCapacity;
-    private Integer panelCount;
 
- // COMMON
-    private Double meterStartReading;
+    private String inverterType;
+
+    private String plantCapacity;
+
+    private Integer panelCount;
 }

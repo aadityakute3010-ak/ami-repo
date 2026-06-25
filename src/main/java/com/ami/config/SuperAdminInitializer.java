@@ -10,47 +10,49 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 @Component
 public class SuperAdminInitializer implements CommandLineRunner {
 
-    private final UserRepository userRepository;
+	private final UserRepository userRepository;
 
-    private final PasswordEncoder passwordEncoder;
+	private final PasswordEncoder passwordEncoder;
 
-    public SuperAdminInitializer(UserRepository userRepository,PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    } 
+	public SuperAdminInitializer(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+		this.userRepository = userRepository;
+		this.passwordEncoder = passwordEncoder;
+	}
 
-    @Override
-    public void run(String... args) {
+	@Override
+	public void run(String... args) {
 
-        String email = "superadmin@gmail.com";
+		String email = "superadmin@gmail.com";
 
-        if (userRepository.findByEmail(email).isPresent()) {
+		if (userRepository.findByEmail(email).isPresent()) {
 //            System.out.println("Super Admin Already Exists");
-            return;
-        } 
+			return;
+		}
 
-        User superAdmin = new User();
+		User superAdmin = new User();
 
-        superAdmin.setFirstName("Super");
-        superAdmin.setLastName("Admin");
+		superAdmin.setFirstName("Super");
+		superAdmin.setLastName("Admin");
 
-        superAdmin.setEmail(email);
+		superAdmin.setEmail(email);
 
-        superAdmin.setPassword(passwordEncoder.encode("12345678")); 
+		superAdmin.setPassword(passwordEncoder.encode("12345678"));
 
-        superAdmin.setRole(RoleType.SUPER_ADMIN);
+		superAdmin.setRole(RoleType.SUPER_ADMIN);
 
-        superAdmin.setStatus(StatusType.ACTIVE);
+		superAdmin.setStatus(StatusType.ACTIVE);
 
-        superAdmin.setAssignedSources(Set.of(SourceType.values()));  
+		superAdmin.setAssignedSources(Arrays.stream(SourceType.values()).filter(source -> source != SourceType.ALL)
+				.collect(Collectors.toSet()));
 
-        userRepository.save(superAdmin);
+		userRepository.save(superAdmin);
 
-        System.out.println("Super Admin Created Successfully");
-    }
+		System.out.println("Super Admin Created Successfully");
+	}
 }

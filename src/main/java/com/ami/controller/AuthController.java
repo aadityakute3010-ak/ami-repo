@@ -1,6 +1,9 @@
 package com.ami.controller;
 
 import com.ami.dto.requests.ChangePasswordRequestDto;
+import org.springframework.security.core.Authentication;
+import com.ami.entity.User;
+import com.ami.repository.UserRepository;
 import com.ami.dto.requests.ForgotPasswordRequestDto;
 import com.ami.dto.requests.LoginRequest;
 import com.ami.dto.requests.ResetPasswordRequestDto;
@@ -15,12 +18,17 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final AuthService authService;
+	private final AuthService authService;
+	private final UserRepository userRepository;
 
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }    
+	public AuthController(
+	        AuthService authService,
+	        UserRepository userRepository) {
+
+	    this.authService = authService;
+	    this.userRepository = userRepository;
+	}  
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
@@ -45,6 +53,45 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<String> changePassword(@Valid @RequestBody ChangePasswordRequestDto request) {
         return ResponseEntity.ok(authService.changePassword(request));
-    }  
+    } 
+    
+    @GetMapping("/me")
+    public ResponseEntity<LoginResponse> getCurrentUser(
+            Authentication authentication) {
+
+        String email =
+                authentication.getName();
+
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "User not found"));
+
+        LoginResponse response =
+                new LoginResponse();
+
+        response.setUserId(
+                user.getId());
+
+        response.setFirstName(
+                user.getFirstName());
+
+        response.setLastName(
+                user.getLastName());
+
+        response.setEmail(
+                user.getEmail());
+
+        response.setRole(
+                user.getRole());
+
+        response.setAssignedSources(
+                user.getAssignedSources());
+
+        return ResponseEntity.ok(
+                response);
+    }
     
 }

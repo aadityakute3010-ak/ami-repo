@@ -22,6 +22,8 @@ import com.ami.entity.telemetry.EnergyTelemetry;
 import com.ami.entity.telemetry.GasTelemetry;
 import com.ami.entity.telemetry.SolarTelemetry;
 import com.ami.entity.telemetry.WaterTelemetry;
+import com.ami.enums.DeviceHealthStatus;
+import com.ami.enums.DeviceStatus;
 import com.ami.enums.RoleType;
 import com.ami.repository.DeviceRepository;
 import com.ami.repository.EnergyTelemetryRepository;
@@ -47,7 +49,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 	private Device getValidDevice(String deviceId) {
 		Device device = deviceRepository.findByDeviceId(deviceId)
 				.orElseThrow(() -> new RuntimeException("Device not found"));
-		if (!Boolean.TRUE.equals(device.getActive())) {
+		if (device.getMeter().getStatus().equals(DeviceStatus.INACTIVE)) {
 			throw new RuntimeException("Device is inactive");
 		}
 		return device;
@@ -80,10 +82,28 @@ public class TelemetryServiceImpl implements TelemetryService {
 		throw new RuntimeException("Access Denied");
 	}
 
-	private void updateDeviceSync(Device device) {
+	private void updateDeviceSync(Device device, Double batteryLevel, Double signalStrength) {
 		device.setOnline(true);
 		device.setLastSyncTime(LocalDateTime.now());
+		device.setHealthStatus(determineHealth(batteryLevel, signalStrength));
 		deviceRepository.save(device);
+	}
+
+	private DeviceHealthStatus determineHealth(Double batteryLevel, Double signalStrength) {
+
+		if (batteryLevel == null || signalStrength == null) {
+			return DeviceHealthStatus.WARNING;
+		}
+
+		if (batteryLevel < 20 || signalStrength < 20) {
+			return DeviceHealthStatus.CRITICAL;
+		}
+
+		if (batteryLevel < 50 || signalStrength < 50) {
+			return DeviceHealthStatus.WARNING;
+		}
+
+		return DeviceHealthStatus.HEALTHY;
 	}
 
 	@Transactional
@@ -118,8 +138,8 @@ public class TelemetryServiceImpl implements TelemetryService {
 			throw new RuntimeException("Unsupported source type");
 		}
 
-		updateDeviceSync(device);
-	} 
+		updateDeviceSync(device, request.getBatteryLevel(), request.getSignalStrength());
+	}
 
 	@Override
 	@Transactional
@@ -128,7 +148,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		Device device = getValidDevice(request.getDeviceId());
 
 		if (device.getMeter() == null) {
-		    throw new RuntimeException("Meter not configured for device");
+			throw new RuntimeException("Meter not configured for device");
 		}
 
 		switch (device.getMeter().getSourceType()) {
@@ -152,7 +172,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		default:
 			throw new RuntimeException("Unsupported Source Type");
 		}
-	} 
+	}
 
 	private void saveWaterTelemetry(Device device, TelemetryIngestRequest request) {
 
@@ -298,7 +318,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		User loggedInUser = getLoggedInUser();
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
 
-		if (!Boolean.TRUE.equals(device.getActive())) {
+		if (device.getMeter().getStatus().equals(DeviceStatus.INACTIVE)) {
 			throw new RuntimeException("Device not found");
 		}
 		validateDeviceAccess(device, loggedInUser);
@@ -306,7 +326,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		Object telemetryData = null;
 
 		if (device.getMeter() == null) {
-		    throw new RuntimeException("Meter not configured for device");
+			throw new RuntimeException("Meter not configured for device");
 		}
 
 		switch (device.getMeter().getSourceType()) {
@@ -382,7 +402,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		}
 		User loggedInUser = getLoggedInUser();
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
-		if (!Boolean.TRUE.equals(device.getActive())) {
+		if (device.getMeter().getStatus().equals(DeviceStatus.INACTIVE)) {
 			throw new RuntimeException("Device not found");
 		}
 		validateDeviceAccess(device, loggedInUser);
@@ -393,7 +413,7 @@ public class TelemetryServiceImpl implements TelemetryService {
 		List<?> telemetryRecords;
 
 		if (device.getMeter() == null) {
-		    throw new RuntimeException("Meter not configured for device");
+			throw new RuntimeException("Meter not configured for device");
 		}
 
 		switch (device.getMeter().getSourceType()) {

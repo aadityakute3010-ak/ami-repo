@@ -8,6 +8,7 @@ import com.ami.dto.responses.LoginResponse;
 import com.ami.entity.BlacklistedToken;
 import com.ami.entity.PasswordResetToken;
 import com.ami.entity.User;
+import com.ami.enums.StatusType;
 import com.ami.repository.BlacklistedTokenRepository;
 import com.ami.repository.PasswordResetTokenRepository;
 import com.ami.repository.UserRepository;
@@ -59,10 +60,9 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new RuntimeException("Invalid email"));
 
         //ACCOUNT DEACTIVATED
-
-        if (!user.getActive()) {
-            throw new RuntimeException("Your account is deactivated");
-        }
+        if(user.getStatus().equals(StatusType.INACTIVE)) {
+			throw new RuntimeException("Your account is deactivated");
+		}
 
         //ACCOUNT LOCK CHECK
 
@@ -71,7 +71,6 @@ public class AuthServiceImpl implements AuthService {
             LocalDateTime unlockTime = user.getLockTime().plusMinutes(15);
 
             //LOCK STILL ACTIVE
-
             if (LocalDateTime.now().isBefore(unlockTime)) {
 
                 long minutesLeft = ChronoUnit.MINUTES.between(LocalDateTime.now(),unlockTime);
@@ -183,7 +182,7 @@ public class AuthServiceImpl implements AuthService {
 
         passwordResetTokenRepository.save(resetToken); 
 
-        String resetLink ="http://localhost:3000/reset-password?token="+ token;
+        String resetLink ="http://localhost:5173/reset-password?token=" + token;
 
         emailService.sendResetPasswordEmail(
                 user.getEmail(),

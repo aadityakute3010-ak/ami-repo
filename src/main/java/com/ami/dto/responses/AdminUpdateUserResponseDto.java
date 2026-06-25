@@ -30,8 +30,6 @@ public class AdminUpdateUserResponseDto {
 
     private Set<SourceType> assignedSources;
 
-    private Boolean active;
-
     public AdminUpdateUserResponseDto() {
     }
 
@@ -121,13 +119,5 @@ public class AdminUpdateUserResponseDto {
 
     public void setAssignedSources(Set<SourceType> assignedSources) {
         this.assignedSources = assignedSources;
-    }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
     }
 }

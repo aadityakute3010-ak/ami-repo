@@ -2,11 +2,8 @@ package com.ami.dto.responses;
 
 import java.time.LocalDateTime;
 
-import com.ami.enums.ApplicationOfAmi;
-import com.ami.enums.BillingType;
+import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.DeviceStatus;
-import com.ami.enums.DiameterSize;
-import com.ami.enums.AmiApplicationType;
 import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
 
@@ -22,7 +19,6 @@ import lombok.NoArgsConstructor;
 public class DeviceDetailsResponseDto {
 
     // Header Section
-
     private Long id;
 
     private String deviceId;
@@ -35,30 +31,25 @@ public class DeviceDetailsResponseDto {
 
     private DeviceStatus status;
 
-    private Boolean active;
-
     private Boolean online;
 
     // Basic Information
-
     private String macAddress;
 
     private String serialNumber;
-
-    private BillingType billingType;
 
     private TechnologyType technologyType;
 
     private LocalDateTime lastSyncTime;
 
-    // Assignment
+    private DeviceHealthStatus healthStatus;
 
+    // Assignment
     private String assignedAdmin;
 
     private String assignedUser;
 
     // Customer Information
-
     private String customerName;
 
     private String customerAddress;
@@ -75,15 +66,34 @@ public class DeviceDetailsResponseDto {
 
     private String meterLocation;
 
-    // Meter Configuration
+    // Communication Settings
+    private String wakeupTime;
 
-    private ApplicationOfAmi applicationOfAmi; 
+    private Integer dataSampleCount;
 
-    private AmiApplicationType amiApplicationType;
+    // Meter Configuration - Common
+    private Double meterStartReading;
 
-    private DiameterSize diameterSize;
+    private String meterType;
+
+    private String application;
+
+    // WATER
+    private String diameterSize;
 
     private Double literPerPulse;
 
-    private Double meterStartReading;
+    // ENERGY
+    private String ctRatio;
+
+    private String ptRatio;
+
+    private String voltageClass;
+
+    // SOLAR
+    private String inverterType;
+
+    private String plantCapacity;
+
+    private Integer panelCount;
 }

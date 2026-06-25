@@ -32,9 +32,7 @@ public class CreateUserResponseDto {
     private StatusType status;
 
     private Set<SourceType> assignedSources;
-
-    private Boolean active;
-
+    
     private LocalDateTime createdAt;
 
     public CreateUserResponseDto() {
@@ -135,15 +133,6 @@ public class CreateUserResponseDto {
     public void setAssignedSources(Set<SourceType> assignedSources) {
         this.assignedSources = assignedSources;
     }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
-    }
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
