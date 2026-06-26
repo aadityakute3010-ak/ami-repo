@@ -4,6 +4,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+### Local Secrets ###
+src/main/resources/application-secret.properties
 
 ### STS ###
 .apt_generated
@@ -32,6 +34,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-### Local Secrets ###
-src/main/resources/application-secret.properties
