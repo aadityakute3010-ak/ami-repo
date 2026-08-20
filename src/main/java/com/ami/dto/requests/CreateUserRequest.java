@@ -63,6 +63,8 @@ public class CreateUserRequest {
     
     @NotNull(message = "Status cannot be NULL")
     private StatusType status;
+    
+    private Long adminId;
 
     public String getFirstName() {
         return firstName;

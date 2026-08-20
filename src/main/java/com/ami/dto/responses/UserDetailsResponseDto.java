@@ -48,6 +48,12 @@ public class UserDetailsResponseDto {
     private String createdBy;
 
     private LocalDateTime createdAt;
+    
+    private Long adminId;
+
+    private String adminName;
+    
+    private Long id;
 
     public UserDetailsResponseDto() {
     }

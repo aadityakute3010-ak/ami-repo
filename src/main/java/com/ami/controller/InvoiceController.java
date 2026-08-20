@@ -1,134 +1,74 @@
 package com.ami.controller;
 
-import java.util.List;
-
-import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ResponseEntity;
-import com.ami.dto.requests.CreateInvoiceRequestDto;
-import com.ami.dto.requests.UpdateInvoiceRequestDto;
-import com.ami.dto.responses.InvoiceResponseDto;
-import com.ami.dto.responses.InvoiceSummaryResponseDto;
-import com.ami.service.InvoiceService;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import com.ami.dto.requests.GenerateInvoiceRequestDto;
+import com.ami.dto.responses.InvoiceResponseDto;
+import com.ami.enums.InvoiceGenerationType;
+import com.ami.service.InvoiceService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import com.ami.dto.responses.PagedInvoiceResponseDto;
+import com.ami.enums.BillingType;
+import com.ami.enums.InvoiceStatus;
+import com.ami.enums.PaymentStatus;
+import com.ami.enums.SourceType;
+
 @RestController
-@RequestMapping("/api/invoices")
+@RequestMapping("/api/billing/invoices")
+@RequiredArgsConstructor
 public class InvoiceController {
 
-    private final InvoiceService invoiceService;
+	private final InvoiceService invoiceService;
 
-    public InvoiceController(
-            InvoiceService invoiceService) {
+	@PostMapping("/generate")
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+	public ResponseEntity<InvoiceResponseDto> generateInvoice(@Valid @RequestBody GenerateInvoiceRequestDto request) {
 
-        this.invoiceService = invoiceService;
-    }
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
-    @PostMapping
-    public InvoiceResponseDto createInvoice(
-            @RequestBody
-            CreateInvoiceRequestDto request) {
+		return ResponseEntity.ok(invoiceService.generateInvoice(request, InvoiceGenerationType.MANUAL));
+	}
 
-        return invoiceService
-                .createInvoice(request);
-    }
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SERVICE_ENGINEER')")
-    @GetMapping
-    public List<InvoiceResponseDto>
-    getAllInvoices() {
+	@GetMapping("/{invoiceId}")
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'USER')")
+	public ResponseEntity<InvoiceResponseDto> getInvoiceById(@PathVariable Long invoiceId) {
 
-        return invoiceService
-                .getAllInvoices();
-    }
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','SERVICE_ENGINEER')")
-    @GetMapping("/{id}")
-    public InvoiceResponseDto getInvoiceById(
-            @PathVariable Long id) {
+		return ResponseEntity.ok(invoiceService.getInvoiceById(invoiceId));
+	}
 
-        return invoiceService
-                .getInvoiceById(id);
-    }
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
-    @PutMapping("/{id}")
-    public InvoiceResponseDto updateInvoice(
-            @PathVariable Long id,
-            @RequestBody
-            UpdateInvoiceRequestDto request) {
+	@GetMapping("/{invoiceId}/preview")
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'USER')")
+	public ResponseEntity<ByteArrayResource> previewInvoicePdf(@PathVariable Long invoiceId) {
 
-        return invoiceService
-                .updateInvoice(
-                        id,
-                        request);
-    }
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
-    @DeleteMapping("/{id}")
-    public String deleteInvoice(
-            @PathVariable Long id) {
+		return invoiceService.generateInvoicePdfResponse(invoiceId, false);
+	}
 
-        return invoiceService
-                .deleteInvoice(id);
-    }
-    @GetMapping("/summary")
-    public InvoiceSummaryResponseDto getSummary() {
+	@GetMapping("/{invoiceId}/download")
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'USER')")
+	public ResponseEntity<ByteArrayResource> downloadInvoicePdf(@PathVariable Long invoiceId) {
 
-        return invoiceService.getSummary();
-    }
-    @GetMapping("/paged")
-    public Page<InvoiceResponseDto>
-    getInvoicesWithPagination(
+		return invoiceService.generateInvoicePdfResponse(invoiceId, true);
+	}
 
-            @RequestParam(
-                    defaultValue = "0")
-            int page,
+	@GetMapping
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN', 'USER')")
+	public ResponseEntity<PagedInvoiceResponseDto> getInvoices(@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size, @RequestParam(required = false) String search,
+			@RequestParam(required = false) InvoiceStatus status,
+			@RequestParam(required = false) PaymentStatus paymentStatus,
+			@RequestParam(required = false) SourceType source, @RequestParam(required = false) BillingType billingType,
+			@RequestParam(required = false) String fromDate, @RequestParam(required = false) String toDate) {
 
-            @RequestParam(
-                    defaultValue = "10")
-            int limit) {
+		return ResponseEntity.ok(invoiceService.getInvoices(page, size, search, status, paymentStatus, source,
+				billingType, fromDate, toDate));
+	}
 
-        return invoiceService
-                .getInvoicesWithPagination(
-                        page,
-                        limit);
-    }
-    @GetMapping("/filter")
-    public List<InvoiceResponseDto> getInvoices(
+	@PostMapping("/{invoiceId}/send-email")
+	public ResponseEntity<InvoiceResponseDto> sendInvoiceEmail(@PathVariable Long invoiceId) {
+		return ResponseEntity.ok(invoiceService.sendInvoiceEmail(invoiceId));
+	}
 
-            @RequestParam(required = false)
-            String customerName,
-
-            @RequestParam(required = false)
-            String status,
-
-            @RequestParam(required = false)
-            String paymentStatus,
-
-            @RequestParam(required = false)
-            String source,
-
-            @RequestParam(required = false)
-            String billingType) {
-
-        return invoiceService.getInvoices(
-                customerName,
-                status,
-                paymentStatus,
-                source,
-                billingType);
-    }
-    @GetMapping("/export")
-    public ResponseEntity<byte[]>
-    exportInvoices() {
-
-        byte[] data =
-                invoiceService.exportInvoices();
-
-        return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=invoices.csv")
-                .contentType(
-                        MediaType.APPLICATION_OCTET_STREAM)
-                .body(data);
-    }
 }

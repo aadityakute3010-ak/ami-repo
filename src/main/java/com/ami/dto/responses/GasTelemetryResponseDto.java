@@ -11,8 +11,13 @@ public class GasTelemetryResponseDto {
 
     private Double gasFlow;
     private Double gasPressure;
+	private Double gasVolume;
     private Double totalConsumption;
     private Double batteryLevel;
     private Double signalStrength;
     private LocalDateTime readingTime;
+	private Double temperature;
+
+	private String pipelineHealth;
+    
 }

@@ -1,27 +1,49 @@
 package com.ami.dto.responses;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
 import com.ami.enums.SourceType;
+import com.ami.enums.TariffCategory;
+import com.ami.enums.TariffStatus;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
-@Data
+@Getter
 @Builder
 public class TariffResponseDto {
 
-    private Long id;
+	private Long id;
 
-    private String tariffName;
+	private String name;
 
-    private SourceType source;
+	private SourceType source;
 
-    private Double ratePerUnit;
+	private TariffCategory category;
 
-    private Double fixedCharge;
+	private String unit;
 
-    private Double taxPercentage;
+	private BigDecimal rate;
 
-    private String description;
+	private BigDecimal fixedCharge;
 
-    private Boolean active;
+	private BigDecimal tax;
+
+	private TariffStatus status;
+
+	private List<TariffSlabResponseDto> slabs;
+
+	private Long createdById;
+
+	private String createdBy;
+
+	private LocalDateTime createdAt;
+
+	private LocalDateTime updatedAt;
+
+	private String description;
+
+	private Long version;
 }

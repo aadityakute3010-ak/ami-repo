@@ -9,29 +9,21 @@ import com.ami.dto.responses.AlertNotificationDto;
 @RequestMapping("/api/ws")
 public class WebSocketTestController {
 
-    private final SimpMessagingTemplate messagingTemplate;
+	private final SimpMessagingTemplate messagingTemplate;
 
-    public WebSocketTestController(
-            SimpMessagingTemplate messagingTemplate) {
+	public WebSocketTestController(SimpMessagingTemplate messagingTemplate) {
 
-        this.messagingTemplate = messagingTemplate;
-    }
+		this.messagingTemplate = messagingTemplate;
+	}
 
-    @PostMapping("/notify")
-    public String sendNotification() {
+	@PostMapping("/notify")
+	public String sendNotification() {
 
-        AlertNotificationDto dto =
-                AlertNotificationDto.builder()
-                        .alertId(999L)
-                        .alertName("Test Alert")
-                        .severity("CRITICAL")
-                        .message("WebSocket Test")
-                        .build();
+		AlertNotificationDto dto = AlertNotificationDto.builder().alertId(999L).alertName("Test Alert")
+				.severity("CRITICAL").message("WebSocket Test").build();
 
-        messagingTemplate.convertAndSend(
-                "/topic/alerts",
-                dto);
+		messagingTemplate.convertAndSend("/topic/alerts", dto);
 
-        return "Notification sent";
-    }
+		return "Notification sent";
+	}
 }

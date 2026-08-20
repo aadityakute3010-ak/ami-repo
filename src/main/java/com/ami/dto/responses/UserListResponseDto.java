@@ -1,4 +1,4 @@
-package com.ami.dto.responses; 
+package com.ami.dto.responses;
 
 import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
@@ -17,18 +17,24 @@ import java.util.Set;
 @Builder
 public class UserListResponseDto {
 
-    private Long id;
+	private Long id;
 
-    private String fullName;
+	private String fullName;
 
-    private String email;
+	private String email;
 
-    private String phoneNo;
+	private String phoneNo;
 
-    private Set<SourceType> assignedSources;
+	private Set<SourceType> assignedSources;
 
-    private StatusType status;
+	private StatusType status;
 
-    private RoleType role;
+	private RoleType role;
+
+	private String address;
+
+	private String city;
+
+	private String state;
 
 }

@@ -1,5 +1,7 @@
 package com.ami.entity;
 
+import com.ami.enums.EngineerAttendanceStatus;
+import com.ami.enums.EngineerAvailabilityStatus;
 import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
 import com.ami.enums.StatusType;
@@ -85,6 +87,28 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "assignedUser")
     @Builder.Default 
     private Set<Device> assignedDevices = new HashSet<>(); 
+    
+ // ================= Engineer Operations =================
+
+    @Enumerated(EnumType.STRING)
+    private EngineerAttendanceStatus attendanceStatus;
+
+    @Enumerated(EnumType.STRING)
+    private EngineerAvailabilityStatus availabilityStatus;
+
+    @Builder.Default
+    private Boolean onField = false;
+
+    @Builder.Default
+    private Integer leaveBalance = 20;
+
+    @Builder.Default
+    private Boolean leaveApproved = false;
+
+    private LocalDateTime lastAttendanceUpdated;
+
+    private LocalDateTime lastAvailabilityUpdated;
+
 
     
 	public User(LocalDateTime createdAt, LocalDateTime updatedAt) {

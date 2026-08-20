@@ -20,6 +20,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import com.ami.enums.BillingType;
 import com.ami.enums.DeviceHealthStatus;
 import jakarta.validation.constraints.PositiveOrZero;
 
@@ -78,7 +80,6 @@ public class Device extends BaseEntity {
 	private Integer dataSampleCount;
 
 	// Runtime Information
-
 	private Boolean online;
 
 	private LocalDateTime lastSyncTime;
@@ -105,5 +106,9 @@ public class Device extends BaseEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(name = "health_status")
 	private DeviceHealthStatus healthStatus = DeviceHealthStatus.OFFLINE;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "billing_type")
+	private BillingType billingType;
 
 }

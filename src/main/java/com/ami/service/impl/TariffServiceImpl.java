@@ -1,218 +1,258 @@
 package com.ami.service.impl;
 
-import java.time.LocalDateTime;
-import com.ami.dto.requests.CreateTariffSlabRequestDto;
-import com.ami.dto.responses.TariffSlabResponseDto;
-import com.ami.entity.TariffSlab;
-import com.ami.repository.TariffSlabRepository;
+import java.math.BigDecimal;
 import java.util.List;
-
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.ami.dto.requests.CreateTariffRequestDto;
-import com.ami.dto.requests.UpdateTariffRequestDto;
+import com.ami.dto.requests.CreateTariffRequest;
+import com.ami.dto.requests.CreateTariffSlabRequest;
+import com.ami.dto.requests.UpdateTariffRequest;
+import com.ami.dto.requests.UpdateTariffSlabRequest;
 import com.ami.dto.responses.TariffResponseDto;
+import com.ami.dto.responses.TariffSlabResponseDto;
 import com.ami.entity.Tariff;
+import com.ami.entity.TariffSlab;
+import com.ami.entity.User;
+import com.ami.enums.SourceType;
+import com.ami.enums.TariffCategory;
+import com.ami.enums.TariffStatus;
+import com.ami.exception.ResourceNotFoundException;
+import com.ami.mapper.TariffMapper;
 import com.ami.repository.TariffRepository;
+import com.ami.repository.TariffSlabRepository;
+import com.ami.security.SecurityUtils;
 import com.ami.service.TariffService;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
-public class TariffServiceImpl
-        implements TariffService {
+@RequiredArgsConstructor
+public class TariffServiceImpl implements TariffService {
 
-    private final TariffRepository tariffRepository;
-    private final TariffSlabRepository tariffSlabRepository;
+	private final TariffRepository tariffRepository;
 
-    public TariffServiceImpl(
-            TariffRepository tariffRepository,
-            TariffSlabRepository tariffSlabRepository) {
+	private final TariffSlabRepository tariffSlabRepository;
 
-        this.tariffRepository = tariffRepository;
-        this.tariffSlabRepository = tariffSlabRepository;
-    }
+	private final TariffMapper tariffMapper;
 
-    @Override
-    public TariffResponseDto createTariff(
-            CreateTariffRequestDto request) {
+	private final SecurityUtils securityUtils;
 
-        Tariff tariff =
-                Tariff.builder()
-                        .tariffName(
-                                request.getTariffName())
-                        .source(
-                                request.getSource())
-                        .ratePerUnit(
-                                request.getRatePerUnit())
-                        .fixedCharge(
-                                request.getFixedCharge())
-                        .taxPercentage(
-                                request.getTaxPercentage())
-                        .description(
-                                request.getDescription())
-                        .active(true)
-                        .createdAt(
-                                LocalDateTime.now())
-                        .updatedAt(
-                                LocalDateTime.now())
-                        .build();
+	@Override
+	@Transactional
+	public TariffResponseDto createTariff(CreateTariffRequest request) {
 
-        tariff =
-                tariffRepository.save(
-                        tariff);
+		User loggedInUser = securityUtils.getLoggedInUser();
 
-        return mapToResponse(tariff);
-    }
+		validateDuplicateTariff(loggedInUser, request.getName(), request.getSource(), request.getCategory(), null);
 
-    @Override
-    public List<TariffResponseDto>
-    getAllTariffs() {
+		Tariff tariff = Tariff.builder().name(request.getName().trim()).source(request.getSource())
+				.category(request.getCategory()).unit(request.getUnit().trim()).rate(request.getRate())
+				.fixedCharge(request.getFixedCharge()).tax(request.getTax()).status(request.getStatus())
+				.description(normalizeDescription(request.getDescription())).createdBy(loggedInUser).build();
 
-        return tariffRepository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
-    }
+		Tariff savedTariff = tariffRepository.save(tariff);
 
-    @Override
-    public TariffResponseDto
-    getTariffById(Long id) {
+		return tariffMapper.toTariffResponse(savedTariff);
+	}
 
-        Tariff tariff =
-                tariffRepository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Tariff not found"));
+	@Override
+	@Transactional(readOnly = true)
+	public List<TariffResponseDto> getAllTariffs(SourceType source, TariffCategory category, TariffStatus status,
+			String search) {
 
-        return mapToResponse(tariff);
-    }
+		String normalizedSearch = null;
 
-    @Override
-    public TariffResponseDto updateTariff(
-            Long id,
-            UpdateTariffRequestDto request) {
+		if (search != null && !search.isBlank()) {
+			normalizedSearch = search.trim();
+		}
 
-        Tariff tariff =
-                tariffRepository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Tariff not found"));
+		return tariffRepository.findWithFilters(source, category, status, normalizedSearch).stream()
+				.map(tariffMapper::toTariffResponse).toList();
+	}
 
-        tariff.setRatePerUnit(
-                request.getRatePerUnit());
+	@Override
+	@Transactional(readOnly = true)
+	public TariffResponseDto getTariffById(Long tariffId) {
 
-        tariff.setFixedCharge(
-                request.getFixedCharge());
+		Tariff tariff = findTariffOrThrow(tariffId);
 
-        tariff.setTaxPercentage(
-                request.getTaxPercentage());
+		return tariffMapper.toTariffResponse(tariff);
+	}
 
-        tariff.setDescription(
-                request.getDescription());
+	@Override
+	@Transactional
+	public TariffResponseDto updateTariff(Long tariffId, UpdateTariffRequest request) {
 
-        tariff.setActive(
-                request.getActive());
+		Tariff tariff = findTariffOrThrow(tariffId);
 
-        tariff.setUpdatedAt(
-                LocalDateTime.now());
+		validateDuplicateTariff(tariff.getCreatedBy(), request.getName(), request.getSource(), request.getCategory(),
+				tariffId);
 
-        tariff =
-                tariffRepository.save(
-                        tariff);
+		tariff.setName(request.getName().trim());
 
-        return mapToResponse(tariff);
-    }
+		tariff.setSource(request.getSource());
 
-    @Override
-    public String deleteTariff(
-            Long id) {
+		tariff.setCategory(request.getCategory());
 
-        Tariff tariff =
-                tariffRepository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Tariff not found"));
+		tariff.setUnit(request.getUnit().trim());
 
-        tariffRepository.delete(tariff);
+		tariff.setRate(request.getRate());
 
-        return "Tariff deleted successfully";
-    }
+		tariff.setFixedCharge(request.getFixedCharge());
 
-    private TariffResponseDto
-    mapToResponse(
-            Tariff tariff) {
+		tariff.setTax(request.getTax());
 
-        return TariffResponseDto
-                .builder()
-                .id(tariff.getId())
-                .tariffName(
-                        tariff.getTariffName())
-                .source(
-                        tariff.getSource())
-                .ratePerUnit(
-                        tariff.getRatePerUnit())
-                .fixedCharge(
-                        tariff.getFixedCharge())
-                .taxPercentage(
-                        tariff.getTaxPercentage())
-                .description(
-                        tariff.getDescription())
-                .active(
-                        tariff.getActive())
-                .build();
-    }
-    @Override
-    public TariffSlabResponseDto addSlab(
-            Long tariffId,
-            CreateTariffSlabRequestDto request) {
+		tariff.setStatus(request.getStatus());
 
-        tariffRepository.findById(tariffId)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Tariff not found"));
+		tariff.setDescription(normalizeDescription(request.getDescription()));
 
-        TariffSlab slab =
-                TariffSlab.builder()
-                        .tariffId(tariffId)
-                        .fromUnit(request.getFromUnit())
-                        .toUnit(request.getToUnit())
-                        .ratePerUnit(
-                                request.getRatePerUnit())
-                        .build();
+		Tariff updatedTariff = tariffRepository.save(tariff);
 
-        slab =
-                tariffSlabRepository.save(slab);
+		return tariffMapper.toTariffResponse(updatedTariff);
+	}
 
-        return TariffSlabResponseDto
-                .builder()
-                .id(slab.getId())
-                .tariffId(slab.getTariffId())
-                .fromUnit(slab.getFromUnit())
-                .toUnit(slab.getToUnit())
-                .ratePerUnit(
-                        slab.getRatePerUnit())
-                .build();
-    }
-    @Override
-    public List<TariffSlabResponseDto>
-    getSlabsByTariffId(
-            Long tariffId) {
+	@Override
+	@Transactional
+	public void deleteTariff(Long tariffId) {
 
-        return tariffSlabRepository
-                .findByTariffId(tariffId)
-                .stream()
-                .map(slab ->
-                        TariffSlabResponseDto
-                                .builder()
-                                .id(slab.getId())
-                                .tariffId(
-                                        slab.getTariffId())
-                                .fromUnit(
-                                        slab.getFromUnit())
-                                .toUnit(
-                                        slab.getToUnit())
-                                .ratePerUnit(
-                                        slab.getRatePerUnit())
-                                .build())
-                .toList();
-    }
+		Tariff tariff = findTariffOrThrow(tariffId);
+
+		tariff.setStatus(TariffStatus.INACTIVE);
+
+		tariffRepository.save(tariff);
+	}
+
+	@Override
+	@Transactional
+	public TariffSlabResponseDto createSlab(Long tariffId, CreateTariffSlabRequest request) {
+
+		Tariff tariff = findTariffOrThrow(tariffId);
+
+		validateSlabRange(tariffId, null, request.getFrom(), request.getTo());
+
+		TariffSlab slab = TariffSlab.builder().tariff(tariff).fromUnit(request.getFrom()).toUnit(request.getTo())
+				.rate(request.getRate()).fixedCharge(request.getFixedCharge()).tax(request.getTax())
+				.status(request.getStatus()).description(normalizeDescription(request.getDescription())).build();
+
+		TariffSlab savedSlab = tariffSlabRepository.save(slab);
+
+		return tariffMapper.toSlabResponse(savedSlab);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<TariffSlabResponseDto> getSlabs(Long tariffId) {
+
+		findTariffOrThrow(tariffId);
+
+		return tariffSlabRepository.findByTariff_IdOrderByFromUnitAsc(tariffId).stream()
+				.map(tariffMapper::toSlabResponse).toList();
+	}
+
+	@Override
+	@Transactional
+	public TariffSlabResponseDto updateSlab(Long tariffId, Long slabId, UpdateTariffSlabRequest request) {
+
+		findTariffOrThrow(tariffId);
+
+		TariffSlab slab = findSlabOrThrow(tariffId, slabId);
+
+		validateSlabRange(tariffId, slabId, request.getFrom(), request.getTo());
+
+		slab.setFromUnit(request.getFrom());
+
+		slab.setToUnit(request.getTo());
+
+		slab.setRate(request.getRate());
+
+		slab.setFixedCharge(request.getFixedCharge());
+
+		slab.setTax(request.getTax());
+
+		slab.setStatus(request.getStatus());
+
+		slab.setDescription(normalizeDescription(request.getDescription()));
+
+		TariffSlab updatedSlab = tariffSlabRepository.save(slab);
+
+		return tariffMapper.toSlabResponse(updatedSlab);
+	}
+
+	@Override
+	@Transactional
+	public void deleteSlab(Long tariffId, Long slabId) {
+
+		findTariffOrThrow(tariffId);
+
+		TariffSlab slab = findSlabOrThrow(tariffId, slabId);
+
+		tariffSlabRepository.delete(slab);
+	}
+
+	private Tariff findTariffOrThrow(Long tariffId) {
+
+		return tariffRepository.findById(tariffId)
+				.orElseThrow(() -> new ResourceNotFoundException("Tariff not found with id: " + tariffId));
+	}
+
+	private TariffSlab findSlabOrThrow(Long tariffId, Long slabId) {
+
+		TariffSlab slab = tariffSlabRepository.findById(slabId)
+				.orElseThrow(() -> new ResourceNotFoundException("Tariff slab not found with id: " + slabId));
+
+		if (slab.getTariff() == null || !tariffId.equals(slab.getTariff().getId())) {
+
+			throw new ResourceNotFoundException("Tariff slab " + slabId + " does not belong to tariff " + tariffId);
+		}
+
+		return slab;
+	}
+
+	private void validateDuplicateTariff(User createdBy, String name, SourceType source, TariffCategory category,Long excludedTariffId) {
+
+		String normalizedName = name.trim();
+		boolean duplicate;
+		if (excludedTariffId == null) {
+			duplicate = tariffRepository.existsByCreatedByAndNameIgnoreCaseAndSourceAndCategoryAndStatus(createdBy,
+					normalizedName, source, category, TariffStatus.ACTIVE);
+		} else {
+			duplicate = tariffRepository.existsByCreatedByAndNameIgnoreCaseAndSourceAndCategoryAndStatusAndIdNot(
+					createdBy, normalizedName, source, category, TariffStatus.ACTIVE, excludedTariffId);
+		}
+		if (duplicate) {
+			throw new IllegalArgumentException("An active tariff already exists with the same name, source and category for this admin");
+		}
+	}
+
+	private void validateSlabRange(Long tariffId, Long excludedSlabId, BigDecimal from, BigDecimal to) {
+
+		if (from == null) {
+			throw new IllegalArgumentException("Slab from range is required");
+		}
+
+		if (from.compareTo(BigDecimal.ZERO) < 0) {
+			throw new IllegalArgumentException("Slab from range cannot be negative");
+		}
+
+		if (to != null && to.compareTo(from) <= 0) {
+
+			throw new IllegalArgumentException("Slab to range must be greater than from range");
+		}
+
+		boolean overlapping = tariffSlabRepository.existsOverlappingSlab(tariffId, from, to, excludedSlabId);
+
+		if (overlapping) {
+			throw new IllegalArgumentException("Tariff slab range overlaps with an existing slab");
+		}
+	}
+
+	private String normalizeDescription(String description) {
+
+		if (description == null || description.isBlank()) {
+			return null;
+		}
+
+		return description.trim();
+	}
 }

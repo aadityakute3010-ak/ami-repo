@@ -1,43 +1,28 @@
 package com.ami.service;
 
-import java.util.List;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.ResponseEntity;
 
-import org.springframework.data.domain.Page;
-
-import com.ami.dto.requests.CreateInvoiceRequestDto;
-import com.ami.dto.requests.UpdateInvoiceRequestDto;
+import com.ami.dto.requests.GenerateInvoiceRequestDto;
 import com.ami.dto.responses.InvoiceResponseDto;
-import com.ami.dto.responses.InvoiceSummaryResponseDto;
+import com.ami.enums.InvoiceGenerationType;
+import com.ami.dto.responses.PagedInvoiceResponseDto;
+import com.ami.enums.BillingType;
+import com.ami.enums.InvoiceStatus;
+import com.ami.enums.PaymentStatus;
+import com.ami.enums.SourceType;
 
 public interface InvoiceService {
 
-    InvoiceResponseDto createInvoice(
-            CreateInvoiceRequestDto request);
+	InvoiceResponseDto generateInvoice(GenerateInvoiceRequestDto request, InvoiceGenerationType generationType);
 
-    List<InvoiceResponseDto> getAllInvoices();
+	InvoiceResponseDto getInvoiceById(Long invoiceId);
 
-    InvoiceResponseDto getInvoiceById(
-            Long id);
+	ResponseEntity<ByteArrayResource> generateInvoicePdfResponse(Long invoiceId, boolean download);
 
-    InvoiceResponseDto updateInvoice(
-            Long id,
-            UpdateInvoiceRequestDto request);
-
-    String deleteInvoice(Long id);
-    
-    InvoiceSummaryResponseDto getSummary();
-    
-    Page<InvoiceResponseDto> getInvoicesWithPagination(
-            int page,
-            int limit);
-    
-    List<InvoiceResponseDto> getInvoices(
-            String customerName,
-            String status,
-            String paymentStatus,
-            String source,
-            String billingType);
-    
-    byte[] exportInvoices();
-    
+	PagedInvoiceResponseDto getInvoices(int page, int size, String search, InvoiceStatus status,
+			PaymentStatus paymentStatus, SourceType source, BillingType billingType, String fromDate, String toDate);
+	
+	InvoiceResponseDto sendInvoiceEmail(Long invoiceId);
+	
 }

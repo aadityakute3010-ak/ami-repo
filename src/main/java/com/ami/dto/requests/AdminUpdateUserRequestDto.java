@@ -21,6 +21,7 @@ public class AdminUpdateUserRequestDto {
     private String city; 
     private Set<SourceType> assignedSources;
     private StatusType status;
+    private Long adminId;
 
     public AdminUpdateUserRequestDto() {
     }
@@ -95,6 +96,14 @@ public class AdminUpdateUserRequestDto {
 
 	public void setStatus(StatusType status) {
 		this.status = status;
+	}
+	
+	public Long getAdminId() {
+	    return adminId;
+	}
+
+	public void setAdminId(Long adminId) {
+	    this.adminId = adminId;
 	}
     
     

@@ -1,6 +1,8 @@
 package com.ami.dto.responses;
 
 import java.time.LocalDateTime;
+
+import com.ami.enums.BillingType;
 import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.DeviceStatus;
 import com.ami.enums.SourceType;
@@ -38,6 +40,8 @@ public class DeviceResponseDto {
 	private SourceType sourceType;
 
 	private DeviceStatus status;
+	
+	private BillingType billingType;
 
 	// Runtime
 	private LocalDateTime lastSyncTime;
@@ -92,6 +96,11 @@ public class DeviceResponseDto {
 	private String plantCapacity;
 
 	private Integer panelCount;
+
+	// assign admin and user id
+
+	private Long assignedAdminId;
+	private Long assignedUserId;
 
 	// Assignment
 

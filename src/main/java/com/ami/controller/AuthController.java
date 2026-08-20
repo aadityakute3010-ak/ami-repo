@@ -12,7 +12,7 @@ import com.ami.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;  
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,77 +21,59 @@ public class AuthController {
 	private final AuthService authService;
 	private final UserRepository userRepository;
 
+	public AuthController(AuthService authService, UserRepository userRepository) {
 
-	public AuthController(
-	        AuthService authService,
-	        UserRepository userRepository) {
+		this.authService = authService;
+		this.userRepository = userRepository;
+	}
 
-	    this.authService = authService;
-	    this.userRepository = userRepository;
-	}  
+	@PostMapping("/login")
+	public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+		return authService.login(request);
+	}
 
-    @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
-    }  
-    
-    @PostMapping("/logout")
-    public ResponseEntity<String> logout(HttpServletRequest request) {
-        return ResponseEntity.ok(authService.logout(request));
-    } 
-    
-    @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
-        return ResponseEntity.ok(authService.forgotPassword(request));
-    }
-    
-    @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
-        return ResponseEntity.ok(authService.resetPassword(request));
-    }
-    
-    @PostMapping("/change-password")
-    public ResponseEntity<String> changePassword(@Valid @RequestBody ChangePasswordRequestDto request) {
-        return ResponseEntity.ok(authService.changePassword(request));
-    } 
-    
-    @GetMapping("/me")
-    public ResponseEntity<LoginResponse> getCurrentUser(
-            Authentication authentication) {
+	@PostMapping("/logout")
+	public ResponseEntity<String> logout(HttpServletRequest request) {
+		return ResponseEntity.ok(authService.logout(request));
+	}
 
-        String email =
-                authentication.getName();
+	@PostMapping("/forgot-password")
+	public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
+		return ResponseEntity.ok(authService.forgotPassword(request));
+	}
 
-        User user =
-                userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "User not found"));
+	@PostMapping("/reset-password")
+	public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
+		return ResponseEntity.ok(authService.resetPassword(request));
+	}
 
-        LoginResponse response =
-                new LoginResponse();
+	@PostMapping("/change-password")
+	public ResponseEntity<String> changePassword(@Valid @RequestBody ChangePasswordRequestDto request) {
+		return ResponseEntity.ok(authService.changePassword(request));
+	}
 
-        response.setUserId(
-                user.getId());
+	@GetMapping("/me")
+	public ResponseEntity<LoginResponse> getCurrentUser(Authentication authentication) {
 
-        response.setFirstName(
-                user.getFirstName());
+		String email = authentication.getName();
 
-        response.setLastName(
-                user.getLastName());
+		User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
 
-        response.setEmail(
-                user.getEmail());
+		LoginResponse response = new LoginResponse();
 
-        response.setRole(
-                user.getRole());
+		response.setUserId(user.getId());
 
-        response.setAssignedSources(
-                user.getAssignedSources());
+		response.setFirstName(user.getFirstName());
 
-        return ResponseEntity.ok(
-                response);
-    }
-    
+		response.setLastName(user.getLastName());
+
+		response.setEmail(user.getEmail());
+
+		response.setRole(user.getRole());
+
+		response.setAssignedSources(user.getAssignedSources());
+
+		return ResponseEntity.ok(response);
+	}
+
 }

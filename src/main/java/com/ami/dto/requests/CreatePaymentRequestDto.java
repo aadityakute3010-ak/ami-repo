@@ -1,15 +1,32 @@
 package com.ami.dto.requests;
 
-import lombok.Data;
+import java.math.BigDecimal;
 
-@Data
+import com.ami.enums.PaymentGateway;
+import com.ami.enums.PaymentMethod;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class CreatePaymentRequestDto {
 
-    private Long invoiceId;
+	@NotNull(message = "Invoice id is required")
+	private Long invoiceId;
 
-    private Double amount;
+	@NotNull(message = "Payment amount is required")
+	@DecimalMin(value = "0.01", message = "Payment amount must be greater than zero")
+	private BigDecimal amount;
 
-    private String paymentMethod;
+	@NotNull(message = "Payment method is required")
+	private PaymentMethod method;
 
-    private String remarks;
+	private PaymentGateway gateway;
+
+	private String referenceNumber;
+
+	private String remarks;
 }

@@ -1,46 +1,101 @@
 package com.ami.dto.responses;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.ami.enums.BillingType;
+import com.ami.enums.InvoiceGenerationType;
 import com.ami.enums.InvoiceStatus;
 import com.ami.enums.PaymentStatus;
 import com.ami.enums.SourceType;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
-@Data
+@Getter
 @Builder
 public class InvoiceResponseDto {
 
-    private Long id;
+	private Long id;
 
-    private String invoiceNumber;
+	private String invoiceNumber;
 
-    private String customerId;
+	private Long customerId;
 
-    private String customerName;
+	private String customerName;
 
-    private String meterNumber;
+	private String email;
 
-    private SourceType source;
+	private String phone;
 
-    private BillingType billingType;
+	private String meterNumber;
 
-    private Double netAmount;
+	private SourceType source;
 
-    private InvoiceStatus status;
+	private BillingType billingType;
 
-    private PaymentStatus paymentStatus;
+	private Long tariffId;
 
-    private LocalDate invoiceDate;
+	private String tariffName;
 
-    private LocalDate dueDate;
+	private BigDecimal previousReading;
 
-    private Double paidAmount;
+	private BigDecimal currentReading;
 
-    private Double balanceAmount;
-    
-    private String history;
+	private BigDecimal consumption;
+
+	private BigDecimal amount;
+
+	private BigDecimal fixedCharge;
+
+	private BigDecimal tax;
+
+	private BigDecimal discount;
+
+	private BigDecimal netAmount;
+	
+	private BigDecimal previousDues;
+
+	private InvoiceStatus status;
+
+	private PaymentStatus paymentStatus;
+
+	private LocalDate invoiceDate;
+
+	private LocalDate dueDate;
+	
+	private BigDecimal penaltyAmount;
+
+	private Boolean penaltyApplied;
+
+	private LocalDate billingPeriodFrom;
+
+	private LocalDate billingPeriodTo;
+
+	private String remarks;
+
+	private BigDecimal paidAmount;
+
+	private BigDecimal balanceAmount;
+
+	private InvoiceGenerationType generationType;
+
+	private String failureReason;
+
+	private LocalDateTime createdAt;
+
+	private LocalDateTime updatedAt;
+	
+	private String pdfPreviewUrl;
+
+	private String pdfDownloadUrl;
+	
+	private Integer invoiceDueDaysSnapshot;
+
+	private Integer gracePeriodDaysSnapshot;
+
+	private Boolean penaltyEnabledSnapshot;
+
+	private BigDecimal penaltyPercentageSnapshot;
 }

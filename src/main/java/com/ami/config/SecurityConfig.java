@@ -7,12 +7,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableMethodSecurity 
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtFilter;
@@ -29,15 +31,11 @@ public class SecurityConfig {
 		http.csrf(csrf -> csrf.disable())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
-						.requestMatchers(
-								"/api/auth/login",
-								"/api/auth/logout",
-								"/api/auth/forgot-password",
-								"/api/auth/reset-password",
-								"/login/oauth2/**",
-								"/oauth2/**")
+						.requestMatchers("/api/auth/login", "/api/auth/logout", "/api/auth/forgot-password",
+								"/api/auth/reset-password", "/login/oauth2/**", "/oauth2/**")
 						.permitAll().requestMatchers(HttpMethod.POST, "/telemetry/saveTelemetry").permitAll()
-						.anyRequest().authenticated())
+						.requestMatchers(HttpMethod.POST, "/api/payloads/ingest").permitAll().anyRequest()
+						.authenticated())
 				.oauth2Login(oauth -> oauth.successHandler(oAuth2SuccessHandler))
 				.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 

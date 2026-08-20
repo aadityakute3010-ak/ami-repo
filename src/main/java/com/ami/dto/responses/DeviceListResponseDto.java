@@ -16,29 +16,31 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class DeviceListResponseDto {
 
-    private Long id;
+	private Long id;
 
-    private String deviceId;
+	private String deviceId;
 
-    private String deviceName;
+	private String deviceName;
 
-    private SourceType sourceType;
+	private SourceType sourceType;
 
-    private TechnologyType technologyType;
+	private TechnologyType technologyType;
 
-    private String serialNumber;
+	private String serialNumber;
 
-    private String macAddress;
+	private String macAddress;
 
-    private DeviceStatus status;
+	private DeviceStatus status;
 
-    private Boolean active;
+	private Boolean online;
 
-    private Boolean online;
+	private BillingType billingType;
 
-    private BillingType billingType;
+	private String assignedAdmin;
 
-    private String assignedAdmin;
+	private String assignedUser;
 
-    private String assignedUser;
+	private Long assignedAdminId;
+
+	private Long assignedUserId;
 }

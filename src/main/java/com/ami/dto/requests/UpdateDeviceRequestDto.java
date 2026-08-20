@@ -4,6 +4,10 @@ import lombok.Data;
 
 @Data
 public class UpdateDeviceRequestDto {
+	
+	private Long assignedAdminId;
+
+    private Long assignedUserId;
 
     private UpdateDeviceInfoDto device;
 

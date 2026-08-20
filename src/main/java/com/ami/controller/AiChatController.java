@@ -14,50 +14,39 @@ import com.ami.service.AiChatService;
 @RequestMapping("/api/ai/chat")
 public class AiChatController {
 
-    private final AiChatService aiChatService;
+	private final AiChatService aiChatService;
 
-    public AiChatController(
-            AiChatService aiChatService) {
+	public AiChatController(AiChatService aiChatService) {
 
-        this.aiChatService = aiChatService;
-    }
-    @PreAuthorize(
-    	    "hasAnyRole('SUPER_ADMIN','ADMIN','USER')")
-    @PostMapping
-    public ChatResponseDto askQuestion(
-            @RequestBody
-            CreateChatRequestDto request) {
+		this.aiChatService = aiChatService;
+	}
 
-        return aiChatService
-                .askQuestion(request);
-    }
-    @PreAuthorize(
-    	    "hasAnyRole('SUPER_ADMIN','ADMIN')")
-    @GetMapping
-    public List<ConversationResponseDto>
-    getAllConversations() {
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','USER')")
+	@PostMapping
+	public ChatResponseDto askQuestion(@RequestBody CreateChatRequestDto request) {
 
-        return aiChatService
-                .getAllConversations();
-    }
-    @PreAuthorize(
-    	    "hasAnyRole('SUPER_ADMIN','ADMIN','USER')")
-    @GetMapping("/{id}")
-    public ConversationResponseDto
-    getConversationById(
-            @PathVariable Long id) {
+		return aiChatService.askQuestion(request);
+	}
 
-        return aiChatService
-                .getConversationById(id);
-    }
-    @PreAuthorize(
-    	    "hasAnyRole('SUPER_ADMIN','ADMIN')")
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+	@GetMapping
+	public List<ConversationResponseDto> getAllConversations() {
 
-    @DeleteMapping("/{id}")
-    public String deleteConversation(
-            @PathVariable Long id) {
+		return aiChatService.getAllConversations();
+	}
 
-        return aiChatService
-                .deleteConversation(id);
-    }
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','USER')")
+	@GetMapping("/{id}")
+	public ConversationResponseDto getConversationById(@PathVariable Long id) {
+
+		return aiChatService.getConversationById(id);
+	}
+
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+
+	@DeleteMapping("/{id}")
+	public String deleteConversation(@PathVariable Long id) {
+
+		return aiChatService.deleteConversation(id);
+	}
 }

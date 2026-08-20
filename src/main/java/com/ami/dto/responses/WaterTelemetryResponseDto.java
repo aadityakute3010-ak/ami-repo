@@ -12,6 +12,9 @@ public class WaterTelemetryResponseDto {
     private Double flowRate;
     private Double pressure;
     private Double totalConsumption;
+	private Double tankLevel;
+	private String pumpStatus;
+	private Boolean leakDetected;
     private Double batteryLevel;
     private Double signalStrength;
     private LocalDateTime readingTime;

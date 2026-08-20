@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.ami.dto.requests.CreateDeviceTelemetryRequestDto;
 import com.ami.dto.responses.DeviceAnalyticsResponseDto;
-import com.ami.dto.responses.DeviceDashboardResponseDto;
+import com.ami.dto.responses.DeviceMetricsDashboardResponseDto;
 import com.ami.dto.responses.DeviceTelemetryResponseDto;
 
 public interface DeviceTelemetryService {
@@ -27,7 +27,7 @@ public interface DeviceTelemetryService {
     getLatestTelemetry(
             String deviceId);
 
-    DeviceDashboardResponseDto
+    DeviceMetricsDashboardResponseDto
     getDashboard();
 
     DeviceAnalyticsResponseDto
@@ -35,4 +35,4 @@ public interface DeviceTelemetryService {
 
     String deleteTelemetry(
             Long id);
-}
+} 

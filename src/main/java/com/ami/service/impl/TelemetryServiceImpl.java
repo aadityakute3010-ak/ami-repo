@@ -17,6 +17,7 @@ import com.ami.dto.responses.TelemetryHistoryResponseDto;
 import com.ami.dto.responses.TelemetryResponseDto;
 import com.ami.dto.responses.WaterTelemetryResponseDto;
 import com.ami.entity.Device;
+import com.ami.entity.Payload;
 import com.ami.entity.User;
 import com.ami.entity.telemetry.EnergyTelemetry;
 import com.ami.entity.telemetry.GasTelemetry;
@@ -106,6 +107,20 @@ public class TelemetryServiceImpl implements TelemetryService {
 		return DeviceHealthStatus.HEALTHY;
 	}
 
+	private Double calculateConsumption(Double startReading, Double endReading) {
+
+		if (startReading == null || endReading == null) {
+			return null;
+		}
+
+		if (endReading < startReading) {
+
+			throw new IllegalArgumentException("End reading cannot be less than start reading");
+		}
+
+		return endReading - startReading;
+	}
+
 	@Transactional
 	@Override
 	public void saveTelemetry(TelemetryRequestDto request) {
@@ -143,9 +158,17 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 	@Override
 	@Transactional
-	public void saveTelemetryFromIngest(TelemetryIngestRequest request) {
+	public void saveTelemetryFromIngest(TelemetryIngestRequest request, Payload payload) {
 
-		Device device = getValidDevice(request.getDeviceId());
+		if (payload == null) {
+			throw new IllegalArgumentException("Payload is required");
+		}
+
+		Device device = payload.getDevice();
+
+		if (device == null) {
+			throw new IllegalArgumentException("Payload device is required");
+		}
 
 		if (device.getMeter() == null) {
 			throw new RuntimeException("Meter not configured for device");
@@ -154,19 +177,19 @@ public class TelemetryServiceImpl implements TelemetryService {
 		switch (device.getMeter().getSourceType()) {
 
 		case ENERGY:
-			saveEnergyTelemetry(device, request);
+			saveEnergyTelemetry(device, payload, request);
 			break;
 
 		case WATER:
-			saveWaterTelemetry(device, request);
+			saveWaterTelemetry(device, payload, request);
 			break;
 
 		case GAS:
-			saveGasTelemetry(device, request);
+			saveGasTelemetry(device, payload, request);
 			break;
 
 		case SOLAR:
-			saveSolarTelemetry(device, request);
+			saveSolarTelemetry(device, payload, request);
 			break;
 
 		default:
@@ -174,11 +197,13 @@ public class TelemetryServiceImpl implements TelemetryService {
 		}
 	}
 
-	private void saveWaterTelemetry(Device device, TelemetryIngestRequest request) {
+	private void saveWaterTelemetry(Device device, Payload payload, TelemetryIngestRequest request) {
 
 		WaterTelemetry telemetry = WaterTelemetry.builder()
 
 				.device(device)
+
+				.payload(payload)
 
 				.flowRate(request.getFlowRate())
 
@@ -186,50 +211,85 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 				.totalConsumption(request.getEndReading())
 
+				.tankLevel(request.getTankLevel())
+
+				.pumpStatus(request.getPumpStatus())
+
+				.leakDetected(request.getLeakDetected())
+
 				.batteryLevel(
 						request.getBatteryPercentage() != null ? request.getBatteryPercentage().doubleValue() : null)
 
 				.signalStrength(request.getSignalQuality() != null ? request.getSignalQuality().doubleValue() : null)
 
-				.readingTime(LocalDateTime.now())
+				.readingTime(payload.getReceivedAt())
 
 				.build();
 
 		waterTelemetryRepository.save(telemetry);
 	}
 
-	private void saveEnergyTelemetry(Device device, TelemetryIngestRequest request) {
+	private void saveEnergyTelemetry(Device device, Payload payload, TelemetryIngestRequest request) {
 
 		EnergyTelemetry telemetry = EnergyTelemetry.builder()
 
 				.device(device)
 
-				.voltage(request.getVoltage()).current(request.getCurrent()).power(request.getPower())
-				.frequency(request.getFrequency()).powerFactor(request.getPowerFactor())
+				.payload(payload)
 
-				.energyConsumed(request.getEndReading())
+				.voltage(request.getVoltage())
+
+				.current(request.getCurrent())
+
+				.power(request.getPower())
+
+				.frequency(request.getFrequency())
+
+				.powerFactor(request.getPowerFactor())
+
+				.energyConsumed(calculateConsumption(request.getStartReading(), request.getEndReading()))
+
+				.energyConsumed(calculateConsumption(request.getStartReading(), request.getEndReading()))
+
+				.activePower(request.getActivePower())
+
+				.reactivePower(request.getReactivePower())
+
+				.apparentPower(request.getApparentPower())
+
+				.load(request.getLoad())
+
+				.demand(request.getDemand())
 
 				.batteryLevel(
 						request.getBatteryPercentage() != null ? request.getBatteryPercentage().doubleValue() : null)
 
 				.signalStrength(request.getSignalQuality() != null ? request.getSignalQuality().doubleValue() : null)
 
-				.readingTime(LocalDateTime.now())
+				.readingTime(payload.getReceivedAt())
 
 				.build();
 
 		energyTelemetryRepository.save(telemetry);
 	}
 
-	private void saveGasTelemetry(Device device, TelemetryIngestRequest request) {
+	private void saveGasTelemetry(Device device, Payload payload, TelemetryIngestRequest request) {
 
 		GasTelemetry telemetry = GasTelemetry.builder()
 
 				.device(device)
 
+				.payload(payload)
+
 				.gasFlow(request.getGasFlow())
 
 				.gasPressure(request.getGasPressure())
+
+				.gasVolume(request.getGasVolume())
+
+				.temperature(request.getTemperature())
+
+				.pipelineHealth(request.getPipelineHealth())
 
 				.totalConsumption(request.getEndReading())
 
@@ -238,18 +298,20 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 				.signalStrength(request.getSignalQuality() != null ? request.getSignalQuality().doubleValue() : null)
 
-				.readingTime(LocalDateTime.now())
+				.readingTime(payload.getReceivedAt())
 
 				.build();
 
 		gasTelemetryRepository.save(telemetry);
 	}
 
-	private void saveSolarTelemetry(Device device, TelemetryIngestRequest request) {
+	private void saveSolarTelemetry(Device device, Payload payload, TelemetryIngestRequest request) {
 
 		SolarTelemetry telemetry = SolarTelemetry.builder()
 
 				.device(device)
+
+				.payload(payload)
 
 				.solarVoltage(request.getSolarVoltage())
 
@@ -257,14 +319,32 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 				.solarPower(request.getSolarPower())
 
-				.energyGenerated(request.getEndReading())
+				.energyGenerated(calculateConsumption(request.getStartReading(), request.getEndReading()))
+
+				.solarGeneration(request.getSolarGeneration())
+
+				.solarConsumption(request.getSolarConsumption())
+
+				.panelTemperature(request.getPanelTemperature())
+
+				.irradiance(request.getIrradiance())
+
+				.inverterStatus(request.getInverterStatus())
+
+				.batteryStorage(request.getBatteryStorage())
+
+				.gridImport(request.getGridImport())
+
+				.gridExport(request.getGridExport())
+
+				.efficiency(request.getEfficiency())
 
 				.batteryLevel(
 						request.getBatteryPercentage() != null ? request.getBatteryPercentage().doubleValue() : null)
 
 				.signalStrength(request.getSignalQuality() != null ? request.getSignalQuality().doubleValue() : null)
 
-				.readingTime(LocalDateTime.now())
+				.readingTime(payload.getReceivedAt())
 
 				.build();
 
@@ -276,8 +356,16 @@ public class TelemetryServiceImpl implements TelemetryService {
 		EnergyTelemetry telemetry = EnergyTelemetry.builder().device(device).voltage(request.getVoltage())
 				.current(request.getCurrent()).power(request.getPower()).frequency(request.getFrequency())
 				.powerFactor(request.getPowerFactor()).energyConsumed(request.getEnergyConsumed())
-				.batteryLevel(request.getBatteryLevel()).signalStrength(request.getSignalStrength())
-				.readingTime(LocalDateTime.now()).build();
+				.activePower(request.getActivePower())
+
+				.reactivePower(request.getReactivePower())
+
+				.apparentPower(request.getApparentPower())
+
+				.load(request.getLoad())
+
+				.demand(request.getDemand()).batteryLevel(request.getBatteryLevel())
+				.signalStrength(request.getSignalStrength()).readingTime(LocalDateTime.now()).build();
 
 		energyTelemetryRepository.save(telemetry);
 	}
@@ -286,18 +374,41 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 		WaterTelemetry telemetry = WaterTelemetry.builder().device(device).flowRate(request.getFlowRate())
 				.pressure(request.getPressure()).totalConsumption(request.getTotalConsumption())
-				.batteryLevel(request.getBatteryLevel()).signalStrength(request.getSignalStrength())
-				.readingTime(LocalDateTime.now()).build();
+				.tankLevel(request.getTankLevel())
+
+				.pumpStatus(request.getPumpStatus())
+
+				.leakDetected(request.getLeakDetected()).batteryLevel(request.getBatteryLevel())
+				.signalStrength(request.getSignalStrength()).readingTime(LocalDateTime.now()).build();
 
 		waterTelemetryRepository.save(telemetry);
 	}
 
 	private void saveGasTelemetry(Device device, TelemetryRequestDto request) {
 
-		GasTelemetry telemetry = GasTelemetry.builder().device(device).gasFlow(request.getGasFlow())
-				.gasPressure(request.getGasPressure()).totalConsumption(request.getTotalConsumption())
-				.batteryLevel(request.getBatteryLevel()).signalStrength(request.getSignalStrength())
-				.readingTime(LocalDateTime.now()).build();
+		GasTelemetry telemetry = GasTelemetry.builder()
+
+				.device(device)
+
+				.gasFlow(request.getGasFlow())
+
+				.gasPressure(request.getGasPressure())
+
+				.gasVolume(request.getGasVolume())
+
+				.temperature(request.getTemperature())
+
+				.pipelineHealth(request.getPipelineHealth())
+
+				.totalConsumption(request.getTotalConsumption())
+
+				.batteryLevel(request.getBatteryLevel())
+
+				.signalStrength(request.getSignalStrength())
+
+				.readingTime(LocalDateTime.now())
+
+				.build();
 
 		gasTelemetryRepository.save(telemetry);
 	}
@@ -307,7 +418,12 @@ public class TelemetryServiceImpl implements TelemetryService {
 		SolarTelemetry telemetry = SolarTelemetry.builder().device(device).solarVoltage(request.getSolarVoltage())
 				.solarCurrent(request.getSolarCurrent()).solarPower(request.getSolarPower())
 				.energyGenerated(request.getEnergyGenerated()).batteryLevel(request.getBatteryLevel())
-				.signalStrength(request.getSignalStrength()).readingTime(LocalDateTime.now()).build();
+				.solarGeneration(request.getSolarGeneration()).solarConsumption(request.getSolarConsumption())
+				.panelTemperature(request.getPanelTemperature()).irradiance(request.getIrradiance())
+				.inverterStatus(request.getInverterStatus()).batteryStorage(request.getBatteryStorage())
+				.gridImport(request.getGridImport()).gridExport(request.getGridExport())
+				.efficiency(request.getEfficiency()).signalStrength(request.getSignalStrength())
+				.readingTime(LocalDateTime.now()).build();
 
 		solarTelemetryRepository.save(telemetry);
 	}
@@ -340,7 +456,10 @@ public class TelemetryServiceImpl implements TelemetryService {
 							.current(energyTelemetry.getCurrent()).power(energyTelemetry.getPower())
 							.frequency(energyTelemetry.getFrequency()).powerFactor(energyTelemetry.getPowerFactor())
 							.energyConsumed(energyTelemetry.getEnergyConsumed())
-							.batteryLevel(energyTelemetry.getBatteryLevel())
+							.activePower(energyTelemetry.getActivePower())
+							.reactivePower(energyTelemetry.getReactivePower())
+							.apparentPower(energyTelemetry.getApparentPower()).load(energyTelemetry.getLoad())
+							.demand(energyTelemetry.getDemand()).batteryLevel(energyTelemetry.getBatteryLevel())
 							.signalStrength(energyTelemetry.getSignalStrength())
 							.readingTime(energyTelemetry.getReadingTime()).build();
 			break;
@@ -353,6 +472,8 @@ public class TelemetryServiceImpl implements TelemetryService {
 					: WaterTelemetryResponseDto.builder().flowRate(waterTelemetry.getFlowRate())
 							.pressure(waterTelemetry.getPressure())
 							.totalConsumption(waterTelemetry.getTotalConsumption())
+							.tankLevel(waterTelemetry.getTankLevel()).pumpStatus(waterTelemetry.getPumpStatus())
+							.leakDetected(waterTelemetry.getLeakDetected())
 							.batteryLevel(waterTelemetry.getBatteryLevel())
 							.signalStrength(waterTelemetry.getSignalStrength())
 							.readingTime(waterTelemetry.getReadingTime()).build();
@@ -365,7 +486,8 @@ public class TelemetryServiceImpl implements TelemetryService {
 
 			telemetryData = gasTelemetry == null ? null
 					: GasTelemetryResponseDto.builder().gasFlow(gasTelemetry.getGasFlow())
-							.gasPressure(gasTelemetry.getGasPressure())
+							.gasPressure(gasTelemetry.getGasPressure()).gasVolume(gasTelemetry.getGasVolume())
+							.temperature(gasTelemetry.getTemperature()).pipelineHealth(gasTelemetry.getPipelineHealth())
 							.totalConsumption(gasTelemetry.getTotalConsumption())
 							.batteryLevel(gasTelemetry.getBatteryLevel())
 							.signalStrength(gasTelemetry.getSignalStrength()).readingTime(gasTelemetry.getReadingTime())
@@ -382,10 +504,16 @@ public class TelemetryServiceImpl implements TelemetryService {
 					: SolarTelemetryResponseDto.builder().solarVoltage(solarTelemetry.getSolarVoltage())
 							.solarCurrent(solarTelemetry.getSolarCurrent()).solarPower(solarTelemetry.getSolarPower())
 							.energyGenerated(solarTelemetry.getEnergyGenerated())
-							.batteryLevel(solarTelemetry.getBatteryLevel())
+							.solarGeneration(solarTelemetry.getSolarGeneration())
+							.solarConsumption(solarTelemetry.getSolarConsumption())
+							.panelTemperature(solarTelemetry.getPanelTemperature())
+							.irradiance(solarTelemetry.getIrradiance())
+							.inverterStatus(solarTelemetry.getInverterStatus())
+							.batteryStorage(solarTelemetry.getBatteryStorage())
+							.gridImport(solarTelemetry.getGridImport()).gridExport(solarTelemetry.getGridExport())
+							.efficiency(solarTelemetry.getEfficiency()).batteryLevel(solarTelemetry.getBatteryLevel())
 							.signalStrength(solarTelemetry.getSignalStrength())
 							.readingTime(solarTelemetry.getReadingTime()).build();
-
 			break;
 
 		default:
@@ -423,8 +551,9 @@ public class TelemetryServiceImpl implements TelemetryService {
 					.findByDeviceAndReadingTimeBetweenOrderByReadingTimeAsc(device, startDateTime, endDateTime).stream()
 					.map(water -> WaterTelemetryResponseDto.builder().flowRate(water.getFlowRate())
 							.pressure(water.getPressure()).totalConsumption(water.getTotalConsumption())
-							.batteryLevel(water.getBatteryLevel()).signalStrength(water.getSignalStrength())
-							.readingTime(water.getReadingTime()).build())
+							.tankLevel(water.getTankLevel()).pumpStatus(water.getPumpStatus())
+							.leakDetected(water.getLeakDetected()).batteryLevel(water.getBatteryLevel())
+							.signalStrength(water.getSignalStrength()).readingTime(water.getReadingTime()).build())
 					.toList();
 			telemetryRecords = waterHistory;
 			break;
@@ -435,6 +564,8 @@ public class TelemetryServiceImpl implements TelemetryService {
 					.map(energy -> EnergyTelemetryResponseDto.builder().voltage(energy.getVoltage())
 							.current(energy.getCurrent()).power(energy.getPower()).frequency(energy.getFrequency())
 							.powerFactor(energy.getPowerFactor()).energyConsumed(energy.getEnergyConsumed())
+							.activePower(energy.getActivePower()).reactivePower(energy.getReactivePower())
+							.apparentPower(energy.getApparentPower()).load(energy.getLoad()).demand(energy.getDemand())
 							.batteryLevel(energy.getBatteryLevel()).signalStrength(energy.getSignalStrength())
 							.readingTime(energy.getReadingTime()).build())
 					.toList();
@@ -446,8 +577,9 @@ public class TelemetryServiceImpl implements TelemetryService {
 					.findByDeviceAndReadingTimeBetweenOrderByReadingTimeAsc(device, startDateTime, endDateTime).stream()
 					.map(gas -> GasTelemetryResponseDto.builder().gasFlow(gas.getGasFlow())
 							.gasPressure(gas.getGasPressure()).totalConsumption(gas.getTotalConsumption())
-							.batteryLevel(gas.getBatteryLevel()).signalStrength(gas.getSignalStrength())
-							.readingTime(gas.getReadingTime()).build())
+							.gasVolume(gas.getGasVolume()).batteryLevel(gas.getBatteryLevel())
+							.temperature(gas.getTemperature()).pipelineHealth(gas.getPipelineHealth())
+							.signalStrength(gas.getSignalStrength()).readingTime(gas.getReadingTime()).build())
 					.toList();
 			telemetryRecords = gasHistory;
 			break;
@@ -457,8 +589,13 @@ public class TelemetryServiceImpl implements TelemetryService {
 					.findByDeviceAndReadingTimeBetweenOrderByReadingTimeAsc(device, startDateTime, endDateTime).stream()
 					.map(solar -> SolarTelemetryResponseDto.builder().solarVoltage(solar.getSolarVoltage())
 							.solarCurrent(solar.getSolarCurrent()).solarPower(solar.getSolarPower())
-							.energyGenerated(solar.getEnergyGenerated()).batteryLevel(solar.getBatteryLevel())
-							.signalStrength(solar.getSignalStrength()).readingTime(solar.getReadingTime()).build())
+							.solarGeneration(solar.getSolarGeneration()).solarConsumption(solar.getSolarConsumption())
+							.panelTemperature(solar.getPanelTemperature()).irradiance(solar.getIrradiance())
+							.inverterStatus(solar.getInverterStatus()).batteryStorage(solar.getBatteryStorage())
+							.gridImport(solar.getGridImport()).gridExport(solar.getGridExport())
+							.efficiency(solar.getEfficiency()).energyGenerated(solar.getEnergyGenerated())
+							.batteryLevel(solar.getBatteryLevel()).signalStrength(solar.getSignalStrength())
+							.readingTime(solar.getReadingTime()).build())
 					.toList();
 			telemetryRecords = solarHistory;
 			break;

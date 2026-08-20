@@ -6,6 +6,7 @@ import com.ami.dto.requests.TelemetryIngestRequest;
 import com.ami.dto.requests.TelemetryRequestDto;
 import com.ami.dto.responses.TelemetryHistoryResponseDto;
 import com.ami.dto.responses.TelemetryResponseDto;
+import com.ami.entity.Payload;
 
 public interface TelemetryService {
 
@@ -14,8 +15,7 @@ public interface TelemetryService {
 	TelemetryResponseDto getLatestTelemetry(Long deviceId);
 
 	TelemetryHistoryResponseDto getTelemetryHistory(Long deviceId, LocalDate from, LocalDate to);
-	
-	void saveTelemetryFromIngest(TelemetryIngestRequest request); 
+
+	void saveTelemetryFromIngest(TelemetryIngestRequest request, Payload payload);
 
 }
- 

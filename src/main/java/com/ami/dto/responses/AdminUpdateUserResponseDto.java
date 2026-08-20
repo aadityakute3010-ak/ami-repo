@@ -4,8 +4,15 @@ import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
 import com.ami.enums.StatusType;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+
 import java.util.Set;
 
+@Getter
+@Setter
+@RequiredArgsConstructor
 public class AdminUpdateUserResponseDto {
 
     private String firstName;
@@ -29,95 +36,9 @@ public class AdminUpdateUserResponseDto {
     private StatusType status;
 
     private Set<SourceType> assignedSources;
+    
+    private Long adminId;
+    
+    private String adminName;
 
-    public AdminUpdateUserResponseDto() {
     }
-
-    public String getFirstName() {
-        return firstName;
-    }
-
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPhoneNo() {
-        return phoneNo;
-    }
-
-    public void setPhoneNo(String phoneNo) {
-        this.phoneNo = phoneNo;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    public String getState() {
-        return state;
-    }
-
-    public void setState(String state) {
-        this.state = state;
-    }
-
-    public String getCity() {
-        return city;
-    }
-
-    public void setCity(String city) {
-        this.city = city;
-    }
-
-    public RoleType getRole() {
-        return role;
-    }
-
-    public void setRole(RoleType role) {
-        this.role = role;
-    }
-
-    public StatusType getStatus() {
-        return status;
-    }
-
-    public void setStatus(StatusType status) {
-        this.status = status;
-    }
-
-    public Set<SourceType> getAssignedSources() {
-        return assignedSources;
-    }
-
-    public void setAssignedSources(Set<SourceType> assignedSources) {
-        this.assignedSources = assignedSources;
-    }
-}

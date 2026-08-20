@@ -4,7 +4,7 @@ import com.ami.enums.SensorStatus;
 import com.ami.enums.ValveStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*; 
+import lombok.*;
 
 @Getter
 @Setter
@@ -12,66 +12,92 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class TelemetryIngestRequest {
-	
+
 	// Device Identity
-    @NotBlank(message = "Device Id is required")
-    private String deviceId;
+	@NotBlank(message = "Device Id is required")
+	private String deviceId;
 
-    // Meter Readings
-    @NotNull(message = "Start Reading is required")
-    private Double startReading;
+	// Meter Readings
+	@NotNull(message = "Start Reading is required")
+	private Double startReading;
 
-    @NotNull(message = "End Reading is required")
-    private Double endReading;
+	@NotNull(message = "End Reading is required")
+	private Double endReading;
 
-    private Double startBalance;
+	private Double startBalance;
 
-    private Double endBalance;
+	private Double endBalance;
 
-    // Communication Data
-    private Integer batteryPercentage;
+	// Communication Data
+	private Integer batteryPercentage;
 
-    private Integer signalQuality;
+	private Integer signalQuality;
 
-    private Integer signalPower;
+	private Integer signalPower;
 
-    private Integer snr;
+	private Integer snr;
 
-    //Device Snapshot
-    private String firmwareVersion;
+	// Device Snapshot
+	private String firmwareVersion;
 
-    private String simNumber;
+	private String simNumber;
 
-    private String consumerNumber;
+	private String consumerNumber;
 
- // Device State
-    private ValveStatus valveStatus;
+	// Device State
+	private ValveStatus valveStatus;
 
-    private SensorStatus sensorStatus;
+	private SensorStatus sensorStatus;
 
- // Raw Payload
-    private String rawPayload;
-    
- // ENERGY
-    private Double voltage;
-    private Double current;
-    private Double power;
-    private Double frequency;
-    private Double powerFactor;
-    private Double energyConsumed;
+	// Raw Payload
+	private String rawPayload;
 
-    // WATER
-    private Double flowRate;
-    private Double pressure;
+	// ENERGY
+	private Double voltage;
+	private Double current;
+	private Double power;
+	private Double frequency;
+	private Double powerFactor;
+	private Double activePower;
+	private Double reactivePower;
+	private Double apparentPower;
+	private Double load;
+	private Double demand;
 
-    // GAS
-    private Double gasFlow;
-    private Double gasPressure;
+	// WATER
+	private Double flowRate;
+	private Double pressure;
+	private Double tankLevel;
+	private String pumpStatus;
+	private Boolean leakDetected;
 
-    // SOLAR
-    private Double solarVoltage;
-    private Double solarCurrent;
-    private Double solarPower;
-    private Double energyGenerated;
-    
+	// GAS
+	private Double gasFlow;
+	private Double gasPressure;
+	private Double gasVolume;
+	private Double temperature;
+	private String pipelineHealth;
+
+	// SOLAR
+	private Double solarVoltage;
+	private Double solarCurrent;
+	private Double solarPower;
+	private Double solarGeneration;
+
+	private Double solarConsumption;
+
+	private Double panelTemperature;
+
+	private Double irradiance;
+
+	private String inverterStatus;
+
+	private Double batteryStorage;
+
+	private Double gridImport;
+
+	private Double gridExport;
+
+	private Double efficiency;
+
 }

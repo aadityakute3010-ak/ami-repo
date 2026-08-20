@@ -11,138 +11,77 @@ import com.ami.repository.DeviceOperationRepository;
 import com.ami.service.DeviceOperationService;
 
 @Service
-public class DeviceOperationServiceImpl
-        implements DeviceOperationService {
+public class DeviceOperationServiceImpl implements DeviceOperationService {
 
-    private final DeviceOperationRepository repository;
+	private final DeviceOperationRepository repository;
 
-    public DeviceOperationServiceImpl(
-            DeviceOperationRepository repository) {
+	public DeviceOperationServiceImpl(DeviceOperationRepository repository) {
 
-        this.repository = repository;
-    }
+		this.repository = repository;
+	}
 
-    @Override
-    public DeviceOperationResponseDto createOperation(
-            CreateDeviceOperationRequestDto request) {
+	@Override
+	public DeviceOperationResponseDto createOperation(CreateDeviceOperationRequestDto request) {
 
-        DeviceOperation operation =
-                DeviceOperation.builder()
-                        .deviceId(request.getDeviceId())
-                        .sourceType(request.getSourceType())
-                        .operationType(request.getOperationType())
-                        .title(request.getTitle())
-                        .description(request.getDescription())
-                        .severity(request.getSeverity())
-                        .status(request.getStatus())
-                        .assignedTo(request.getAssignedTo())
-                        .rootCause(request.getRootCause())
-                        .responseMessage(
-                                request.getResponseMessage())
-                        .latitude(request.getLatitude())
-                        .longitude(request.getLongitude())
-                        .resolved(request.getResolved())
-                        .executedAt(
-                                java.time.LocalDateTime.now())
-                        .acknowledgedBy(
-                                request.getAcknowledgedBy())
-                        .acknowledgedAt(
-                                java.time.LocalDateTime.now())
-                        .build();
-        operation = repository.save(operation);
+		DeviceOperation operation = DeviceOperation.builder().deviceId(request.getDeviceId())
+				.sourceType(request.getSourceType()).operationType(request.getOperationType()).title(request.getTitle())
+				.description(request.getDescription()).severity(request.getSeverity()).status(request.getStatus())
+				.assignedTo(request.getAssignedTo()).rootCause(request.getRootCause())
+				.responseMessage(request.getResponseMessage()).latitude(request.getLatitude())
+				.longitude(request.getLongitude()).resolved(request.getResolved())
+				.executedAt(java.time.LocalDateTime.now()).acknowledgedBy(request.getAcknowledgedBy())
+				.acknowledgedAt(java.time.LocalDateTime.now()).build();
+		operation = repository.save(operation);
 
-        return mapToResponse(operation);
-    }
+		return mapToResponse(operation);
+	}
 
-    @Override
-    public List<DeviceOperationResponseDto>
-    getAllOperations() {
+	@Override
+	public List<DeviceOperationResponseDto> getAllOperations() {
 
-        return repository.findAll()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
-    }
+		return repository.findAll().stream().map(this::mapToResponse).toList();
+	}
 
-    @Override
-    public DeviceOperationResponseDto
-    getOperationById(
-            Long id) {
+	@Override
+	public DeviceOperationResponseDto getOperationById(Long id) {
 
-        DeviceOperation operation =
-                repository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Operation not found"));
+		DeviceOperation operation = repository.findById(id)
+				.orElseThrow(() -> new RuntimeException("Operation not found"));
 
-        return mapToResponse(operation);
-    }
+		return mapToResponse(operation);
+	}
 
-    @Override
-    public List<DeviceOperationResponseDto>
-    getByDeviceId(
-            String deviceId) {
+	@Override
+	public List<DeviceOperationResponseDto> getByDeviceId(String deviceId) {
 
-        return repository.findByDeviceId(deviceId)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
-    }
+		return repository.findByDeviceId(deviceId).stream().map(this::mapToResponse).toList();
+	}
 
-    @Override
-    public List<DeviceOperationResponseDto>
-    getByOperationType(
-            String operationType) {
+	@Override
+	public List<DeviceOperationResponseDto> getByOperationType(String operationType) {
 
-        return repository.findByOperationType(
-                        operationType)
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
-    }
+		return repository.findByOperationType(operationType).stream().map(this::mapToResponse).toList();
+	}
 
-    @Override
-    public String deleteOperation(
-            Long id) {
+	@Override
+	public String deleteOperation(Long id) {
 
-        DeviceOperation operation =
-                repository.findById(id)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Operation not found"));
+		DeviceOperation operation = repository.findById(id)
+				.orElseThrow(() -> new RuntimeException("Operation not found"));
 
-        repository.delete(operation);
+		repository.delete(operation);
 
-        return "Operation deleted successfully";
-    }
+		return "Operation deleted successfully";
+	}
 
-    private DeviceOperationResponseDto
-    mapToResponse(
-            DeviceOperation operation) {
+	private DeviceOperationResponseDto mapToResponse(DeviceOperation operation) {
 
-        return DeviceOperationResponseDto
-                .builder()
-                .id(operation.getId())
-                .deviceId(operation.getDeviceId())
-                .sourceType(operation.getSourceType())
-                .operationType(operation.getOperationType())
-                .title(operation.getTitle())
-                .description(operation.getDescription())
-                .severity(operation.getSeverity())
-                .status(operation.getStatus())
-                .assignedTo(operation.getAssignedTo())
-                .rootCause(operation.getRootCause())
-                .latitude(operation.getLatitude())
-                .longitude(operation.getLongitude())
-                .resolved(operation.getResolved())
-                .responseMessage(
-                        operation.getResponseMessage())
-                .executedAt(
-                        operation.getExecutedAt())
-                .acknowledgedBy(
-                        operation.getAcknowledgedBy())
-                .acknowledgedAt(
-                        operation.getAcknowledgedAt())
-                .build();
-}
+		return DeviceOperationResponseDto.builder().id(operation.getId()).deviceId(operation.getDeviceId())
+				.sourceType(operation.getSourceType()).operationType(operation.getOperationType())
+				.title(operation.getTitle()).description(operation.getDescription()).severity(operation.getSeverity())
+				.status(operation.getStatus()).assignedTo(operation.getAssignedTo()).rootCause(operation.getRootCause())
+				.latitude(operation.getLatitude()).longitude(operation.getLongitude()).resolved(operation.getResolved())
+				.responseMessage(operation.getResponseMessage()).executedAt(operation.getExecutedAt())
+				.acknowledgedBy(operation.getAcknowledgedBy()).acknowledgedAt(operation.getAcknowledgedAt()).build();
+	}
 }

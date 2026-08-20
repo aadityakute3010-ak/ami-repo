@@ -1,9 +1,11 @@
 package com.ami.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.ami.enums.BillingType;
+import com.ami.enums.InvoiceGenerationType;
 import com.ami.enums.InvoiceStatus;
 import com.ami.enums.PaymentStatus;
 import com.ami.enums.SourceType;
@@ -12,81 +14,150 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "invoices")
-@Data
-@Builder
+@Table(name = "invoices", uniqueConstraints = {
+		@UniqueConstraint(name = "uk_invoice_device_billing_period", columnNames = { "device_id", "billing_period_from",
+				"billing_period_to" }) })
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Invoice {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String invoiceNumber;
+	@Column(name = "invoice_number", nullable = false, unique = true)
+	private String invoiceNumber;
 
-    private String customerId;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "device_id", nullable = false)
+	private Device device;
 
-    private String customerName;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "tariff_id")
+	private Tariff tariff;
 
-    private String email;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "customer_id")
+	private User customer;
 
-    private String phone;
+	@Column(name = "customer_name")
+	private String customerName;
 
-    private String meterNumber;
+	@Column(name = "email")
+	private String email;
 
-    @Enumerated(EnumType.STRING)
-    private SourceType source;
+	@Column(name = "phone")
+	private String phone;
 
-    @Enumerated(EnumType.STRING)
-    private BillingType billingType;
+	@Column(name = "meter_number")
+	private String meterNumber;
 
-    private Long tariffId;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "source")
+	private SourceType source;
 
-    private Double previousReading;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "billing_type")
+	private BillingType billingType;
 
-    private Double currentReading;
+	@Column(name = "previous_reading", precision = 15, scale = 2)
+	private BigDecimal previousReading;
 
-    private Double consumption;
+	@Column(name = "current_reading", precision = 15, scale = 2)
+	private BigDecimal currentReading;
 
-    private Double amount;
+	@Column(name = "consumption", precision = 15, scale = 2)
+	private BigDecimal consumption;
 
-    private Double fixedCharge;
+	@Column(name = "amount", precision = 15, scale = 2)
+	private BigDecimal amount;
+	
+	@Column(name = "previous_dues", precision = 10, scale = 2)
+	@Builder.Default
+	private BigDecimal previousDues = BigDecimal.ZERO;
 
-    private Double tax;
+	@Column(name = "fixed_charge", precision = 15, scale = 2)
+	private BigDecimal fixedCharge;
 
-    private Double discount;
+	@Column(name = "tax", precision = 15, scale = 2)
+	private BigDecimal tax;
 
-    private Double netAmount;
+	@Column(name = "discount", precision = 15, scale = 2)
+	private BigDecimal discount;
 
-    @Enumerated(EnumType.STRING)
-    private InvoiceStatus status;
+	@Column(name = "net_amount", precision = 15, scale = 2)
+	private BigDecimal netAmount;
 
-    @Enumerated(EnumType.STRING)
-    private PaymentStatus paymentStatus;
+	@Column(name = "paid_amount", precision = 15, scale = 2)
+	private BigDecimal paidAmount;
 
-    private LocalDate invoiceDate;
+	@Column(name = "balance_amount", precision = 15, scale = 2)
+	private BigDecimal balanceAmount;
 
-    private LocalDate dueDate;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status")
+	private InvoiceStatus status;
 
-    private LocalDate billingPeriodFrom;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "payment_status")
+	private PaymentStatus paymentStatus;
 
-    private LocalDate billingPeriodTo;
+	@Column(name = "invoice_date")
+	private LocalDate invoiceDate;
 
-    private String remarks;
+	@Column(name = "due_date")
+	private LocalDate dueDate;
+	
+	@Column(name = "penalty_amount", precision = 10, scale = 2)
+	@Builder.Default
+	private BigDecimal penaltyAmount = BigDecimal.ZERO;
 
-    private Double paidAmount;
+	@Column(name = "penalty_applied", nullable = false)
+	@Builder.Default
+	private Boolean penaltyApplied = false;
 
-    private Double balanceAmount;
+	@Column(name = "billing_period_from")
+	private LocalDate billingPeriodFrom;
 
-    private LocalDateTime createdAt;
+	@Column(name = "billing_period_to")
+	private LocalDate billingPeriodTo;
 
-    private LocalDateTime updatedAt;
-    
-    @Column(length = 5000)
-    private String history;
+	@Column(name = "remarks", length = 1000)
+	private String remarks;
 
-    private String generatedBy;
+	@Enumerated(EnumType.STRING)
+	@Column(name = "generation_type")
+	private InvoiceGenerationType generationType;
 
-    private String lastUpdatedBy;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "generated_by")
+	private User generatedBy;
+
+	@Column(name = "failure_reason", length = 1000)
+	private String failureReason;
+
+	@Column(name = "created_at")
+	private LocalDateTime createdAt;
+
+	@Column(name = "updated_at")
+	private LocalDateTime updatedAt;
+	
+	// Billing settings snapshot at invoice generation time
+
+	@Column(name = "invoice_due_days_snapshot")
+	private Integer invoiceDueDaysSnapshot;
+
+	@Column(name = "grace_period_days_snapshot")
+	private Integer gracePeriodDaysSnapshot;
+
+	@Column(name = "penalty_enabled_snapshot", nullable = false)
+	@Builder.Default
+	private Boolean penaltyEnabledSnapshot = false;
+
+	@Column(name = "penalty_percentage_snapshot", precision = 10, scale = 2)
+	@Builder.Default
+	private BigDecimal penaltyPercentageSnapshot = BigDecimal.ZERO;
 }

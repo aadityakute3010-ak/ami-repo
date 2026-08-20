@@ -14,16 +14,20 @@ import com.ami.dto.responses.PagedUserResponseDto;
 import com.ami.dto.responses.UserDashboardResponseDto;
 import com.ami.dto.responses.UserDetailsResponseDto;
 import com.ami.dto.responses.UserListResponseDto;
+import com.ami.dto.responses.UserMapMarkerDto;
 import com.ami.entity.Device;
 import com.ami.entity.User;
+import com.ami.entity.UserLocation;
 import com.ami.enums.DeleteType;
 import com.ami.enums.RoleType;
 import com.ami.enums.SourceType;
 import com.ami.enums.StatusType;
 import com.ami.repository.DeviceRepository;
 import com.ami.repository.PasswordResetTokenRepository;
+import com.ami.repository.UserLocationRepository;
 import com.ami.repository.UserRepository;
 import com.ami.security.SecurityUtils;
+import com.ami.service.LocationService;
 import com.ami.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -37,6 +41,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -82,6 +87,10 @@ public class UserServiceImpl implements UserService {
 
 	private final PasswordResetTokenRepository passwordResetTokenRepository;
 
+	private final LocationService locationService;
+
+	private final UserLocationRepository userLocationRepository;
+
 	@Autowired
 	private SecurityUtils securityUtils;
 
@@ -94,6 +103,19 @@ public class UserServiceImpl implements UserService {
 					.collect(Collectors.toSet());
 		}
 		return requestedSources;
+	}
+
+	private LocalDate parseDate(String date, String fieldName) {
+
+		if (date == null || date.isBlank()) {
+			return null;
+		}
+
+		try {
+			return LocalDate.parse(date.trim());
+		} catch (DateTimeParseException e) {
+			throw new IllegalArgumentException(fieldName + " must be in yyyy-MM-dd format");
+		}
 	}
 
 	@Override
@@ -147,8 +169,19 @@ public class UserServiceImpl implements UserService {
 		user.setStatus(request.getStatus());
 		user.setAssignedSources(resolvedSources);
 		// TRACK WHO CREATED USER
-		user.setCreatedBy(creator);
+		if (creator.getRole() == RoleType.SUPER_ADMIN && request.getRole() == RoleType.USER
+				&& request.getAdminId() != null) {
+			User admin = userRepository.findById(request.getAdminId())
+					.orElseThrow(() -> new RuntimeException("Admin not found"));
+			if (admin.getRole() != RoleType.ADMIN) {
+				throw new RuntimeException("Selected user is not an Admin");
+			}
+			user.setCreatedBy(admin);
+		} else {
+			user.setCreatedBy(creator);
+		}
 		User savedUser = userRepository.save(user);
+		locationService.saveOrUpdateUserLocation(savedUser);
 		return mapToCreateUserResponse(savedUser);
 	}
 
@@ -235,20 +268,24 @@ public class UserServiceImpl implements UserService {
 
 		Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
 
+		LocalDateTime fromDateTime = request.getFromDate() != null ? request.getFromDate().atStartOfDay() : null;
+
+		LocalDateTime toDateTime = request.getToDate() != null ? request.getToDate().atTime(23, 59, 59) : null;
+
 		Page<User> userPage;
 
 		// SUPER ADMIN
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
 
-			userPage = userRepository.findUsersWithFilters(request.getKeyword(), request.getRole(), request.getStatus(),
-					pageable);
+			userPage = userRepository.findUsersWithFilters(loggedInUser.getId(), request.getKeyword(),
+					request.getRole(), request.getStatus(), fromDateTime, toDateTime, pageable);
 		}
 
 		// ADMIN
 		else if (loggedInUser.getRole() == RoleType.ADMIN) {
 
-			userPage = userRepository.findUsersWithFiltersForAdmin(loggedInUser.getId(), request.getKeyword(),
-					request.getRole(), request.getStatus(), pageable);
+			userPage = userRepository.findUsersWithFiltersForAdmin(loggedInUser.getId(), loggedInUser.getId(),
+					request.getKeyword(), request.getRole(), request.getStatus(), fromDateTime, toDateTime, pageable);
 		}
 
 		else {
@@ -344,6 +381,8 @@ public class UserServiceImpl implements UserService {
 		// ACTIVITY DETAILS
 		if (user.getCreatedBy() != null) {
 			dto.setCreatedBy(user.getCreatedBy().getFirstName() + " " + user.getCreatedBy().getLastName());
+			dto.setAdminId(user.getCreatedBy().getId());
+			dto.setAdminName(user.getCreatedBy().getFirstName() + " " + user.getCreatedBy().getLastName());
 		}
 		dto.setCreatedAt(user.getCreatedAt());
 		return dto;
@@ -385,6 +424,10 @@ public class UserServiceImpl implements UserService {
 		dto.setRole(user.getRole());
 		dto.setStatus(user.getStatus());
 		dto.setAssignedSources(user.getAssignedSources());
+		if (user.getCreatedBy() != null) {
+			dto.setAdminId(user.getCreatedBy().getId());
+			dto.setAdminName(user.getCreatedBy().getFirstName() + " " + user.getCreatedBy().getLastName());
+		}
 		return dto;
 	}
 
@@ -465,6 +508,8 @@ public class UserServiceImpl implements UserService {
 		}
 
 		User updatedUser = userRepository.save(user);
+		locationService.saveOrUpdateUserLocation(updatedUser);
+		locationService.updateAssignedDeviceLocationsForUser(updatedUser);
 
 		return mapToUserDetailsResponse(updatedUser);
 	}
@@ -497,6 +542,11 @@ public class UserServiceImpl implements UserService {
 				}
 			}
 		}
+		if (targetUser.getCreatedBy() != null && request.getAdminId() != null && targetUser.getRole() == RoleType.USER
+				&& !targetUser.getCreatedBy().getId().equals(request.getAdminId())) {
+			throw new RuntimeException("Assigned Admin cannot be changed.");
+
+		}
 		// UPDATE FIELDS
 		targetUser.setFirstName(request.getFirstName());
 		targetUser.setLastName(request.getLastName());
@@ -524,7 +574,19 @@ public class UserServiceImpl implements UserService {
 			validateSourceAssignment(admin, resolvedSources);
 			targetUser.setAssignedSources(resolvedSources);
 		}
+
+		if (admin.getRole() == RoleType.SUPER_ADMIN && targetUser.getRole() == RoleType.USER
+				&& targetUser.getCreatedBy() == null && request.getAdminId() != null) {
+
+			User assignedAdmin = userRepository.findById(request.getAdminId())
+					.orElseThrow(() -> new RuntimeException("Admin not found"));
+
+			targetUser.setCreatedBy(assignedAdmin);
+		}
+
 		User updatedUser = userRepository.save(targetUser);
+		locationService.saveOrUpdateUserLocation(updatedUser);
+		locationService.updateAssignedDeviceLocationsForUser(updatedUser);
 		return mapToAdminUpdateUserResponse(updatedUser);
 	}
 
@@ -584,6 +646,7 @@ public class UserServiceImpl implements UserService {
 			}
 
 			passwordResetTokenRepository.deleteByUserId(targetUser.getId());
+			userLocationRepository.deleteById(targetUser.getId());
 
 			userRepository.delete(targetUser);
 
@@ -607,12 +670,35 @@ public class UserServiceImpl implements UserService {
 		return admins.stream().map(this::mapToUserListResponseDto).toList();
 	}
 
+	@Override
+	public List<UserListResponseDto> getEligibleUsers(Long adminId, SourceType sourceType) {
+
+		User loggedInUser = securityUtils.getLoggedInUser();
+
+		if (sourceType == null) {
+			throw new RuntimeException("Source type is required");
+		}
+
+		if (loggedInUser.getRole() == RoleType.ADMIN) {
+			adminId = loggedInUser.getId();
+		}
+
+		else if (loggedInUser.getRole() != RoleType.SUPER_ADMIN) {
+			throw new RuntimeException("Access Denied");
+		}
+
+		List<User> users = userRepository.findEligibleUsersByAdminAndSource(adminId, sourceType);
+
+		return users.stream().map(this::mapToUserListResponseDto).toList();
+	}
+
 	private UserListResponseDto mapToUserListResponseDto(User user) {
 
 		return UserListResponseDto.builder().id(user.getId())
 				.fullName(user.getFirstName() + " " + (user.getLastName() != null ? user.getLastName() : ""))
 				.email(user.getEmail()).phoneNo(user.getPhoneNo()).assignedSources(user.getAssignedSources())
-				.status(user.getStatus()).role(user.getRole()).build();
+				.address(user.getAddress()).city(user.getCity()).state(user.getState()).status(user.getStatus())
+				.role(user.getRole()).build();
 	}
 
 	@Override
@@ -898,23 +984,39 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
-	public ExportFileResponseDto exportUsers(String fileType) {
+	public ExportFileResponseDto exportUsers(String fileType, String keyword, RoleType role, StatusType status,
+			String fromDate, String toDate) {
 
 		User loggedInUser = securityUtils.getLoggedInUser();
+
+		LocalDate parsedFromDate = parseDate(fromDate, "fromDate");
+		LocalDate parsedToDate = parseDate(toDate, "toDate");
+		LocalDateTime fromDateTime = parsedFromDate != null ? parsedFromDate.atStartOfDay() : null;
+		LocalDateTime toDateTime = parsedToDate != null ? parsedToDate.atTime(23, 59, 59) : null;
+
 		List<User> users;
+
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
-			users = userRepository.findAll();
+
+			users = userRepository.findUsersWithFiltersForExport(keyword, role, status, fromDateTime, toDateTime);
+
 		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
-			users = userRepository.findByCreatedBy(loggedInUser);
+
+			users = userRepository.findUsersWithFiltersForAdminExport(loggedInUser.getId(), keyword, role, status,
+					fromDateTime, toDateTime);
+
 		} else {
 			throw new RuntimeException("Access Denied");
 		}
+
 		if (fileType == null || fileType.isBlank()) {
 			fileType = "csv";
 		}
+
 		fileType = fileType.trim().toLowerCase();
 
 		return switch (fileType) {
+
 		case "csv" -> ExportFileResponseDto.builder().file(exportUsersToCsv(users)).fileName("users.csv")
 				.contentType("text/csv").build();
 
@@ -1074,6 +1176,37 @@ public class UserServiceImpl implements UserService {
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to export users PDF", e);
 		}
+	}
+
+	@Override
+	public List<UserMapMarkerDto> getUserMapMarkers() {
+
+		User loggedInUser = securityUtils.getLoggedInUser();
+
+		Long adminId = null;
+
+		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
+			adminId = null;
+		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
+			adminId = loggedInUser.getId();
+		} else {
+			throw new RuntimeException("Access Denied");
+		}
+
+		return userLocationRepository.findUserMapMarkers(adminId).stream().map(this::mapToUserMapMarker).toList();
+	}
+
+	private UserMapMarkerDto mapToUserMapMarker(UserLocation location) {
+
+		User user = location.getUser();
+
+		String fullName = ((user.getFirstName() != null ? user.getFirstName() : "") + " "
+				+ (user.getLastName() != null ? user.getLastName() : "")).trim();
+
+		return UserMapMarkerDto.builder().userId(user.getId()).fullName(fullName).email(user.getEmail())
+				.phoneNo(user.getPhoneNo()).address(location.getAddress()).city(location.getCity())
+				.state(location.getState()).country(location.getCountry()).latitude(location.getLatitude())
+				.longitude(location.getLongitude()).role(user.getRole()).status(user.getStatus()).build();
 	}
 
 }

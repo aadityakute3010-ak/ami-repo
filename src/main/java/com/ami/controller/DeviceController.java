@@ -1,7 +1,7 @@
+
 package com.ami.controller;
 
 import java.util.List;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +17,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.ami.dto.requests.AssignAdminRequestDto;
+import com.ami.dto.requests.AssignBillingTypeRequestDto;
 import com.ami.dto.requests.CreateDevicesRequestDto;
 import com.ami.dto.requests.UpdateDeviceRequestDto;
 import com.ami.dto.responses.DeviceAuditResponseDto;
 import com.ami.dto.responses.DeviceBulkUploadResponseDto;
 import com.ami.dto.responses.DeviceDashboardResponseDto;
 import com.ami.dto.responses.DeviceDetailsResponseDto;
+import com.ami.dto.responses.DeviceMapMarkerDto;
 import com.ami.dto.responses.DeviceResponseDto;
 import com.ami.dto.responses.DeviceUpdateFormResponseDto;
 import com.ami.dto.responses.ExportFileResponseDto;
@@ -32,30 +34,38 @@ import com.ami.enums.DeviceStatus;
 import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
 import com.ami.service.DeviceService;
+import com.ami.service.LocationService;
+
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/devices")
 public class DeviceController {
 
 	private final DeviceService deviceService;
-
-	public DeviceController(DeviceService deviceService) {
-		this.deviceService = deviceService;
-	}
+	private final LocationService locationService;
 
 	@PostMapping("/createDevice")
 	public ResponseEntity<List<DeviceResponseDto>> createDevices(@RequestBody @Valid CreateDevicesRequestDto request) {
 		return ResponseEntity.ok(deviceService.createDevices(request));
 	}
 
+	@GetMapping("/source-types")
+	public ResponseEntity<List<SourceType>> getAssignedSourceTypes() {
+		return ResponseEntity.ok(deviceService.getAssignedSourceTypes());
+	}
+
 	@GetMapping("/getDevices")
 	public ResponseEntity<PagedDeviceResponseDto> getDevices(@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "5") int size, @RequestParam(required = false) String search,
+			@RequestParam(defaultValue = "10") int size, @RequestParam(required = false) String search,
 			@RequestParam(required = false) DeviceStatus status, @RequestParam(required = false) SourceType sourceType,
-			@RequestParam(required = false) TechnologyType technologyType) {
+			@RequestParam(required = false) TechnologyType technologyType,
+			@RequestParam(required = false) String fromDate, @RequestParam(required = false) String toDate) {
 
-		return ResponseEntity.ok(deviceService.getDevices(page, size, search, status, sourceType, technologyType));
+		return ResponseEntity
+				.ok(deviceService.getDevices(page, size, search, status, sourceType, technologyType, fromDate, toDate));
 	}
 
 	@PutMapping("/assign-user/{deviceId}/{userId}")
@@ -119,11 +129,37 @@ public class DeviceController {
 
 	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','USER')")
 	@GetMapping("/export")
-	public ResponseEntity<byte[]> exportDevices(@RequestParam(defaultValue = "csv") String fileType) {
-		ExportFileResponseDto exportFile = deviceService.exportDevices(fileType);
+	public ResponseEntity<byte[]> exportDevices(@RequestParam(defaultValue = "csv") String fileType,
+			@RequestParam(required = false) String search, @RequestParam(required = false) DeviceStatus status,
+			@RequestParam(required = false) SourceType sourceType,
+			@RequestParam(required = false) TechnologyType technologyType,
+			@RequestParam(required = false) String fromDate, @RequestParam(required = false) String toDate) {
+
+		ExportFileResponseDto exportFile = deviceService.exportDevices(fileType, search, status, sourceType,
+				technologyType, fromDate, toDate);
+
 		return ResponseEntity.ok()
 				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + exportFile.getFileName())
 				.contentType(MediaType.parseMediaType(exportFile.getContentType())).body(exportFile.getFile());
+	}
+
+	@GetMapping("/map-markers")
+	public ResponseEntity<List<DeviceMapMarkerDto>> getDeviceMapMarkers() {
+		return ResponseEntity.ok(deviceService.getDeviceMapMarkers());
+	}
+
+	@PostMapping("/locations/backfill/devices")
+	public ResponseEntity<String> backfillDeviceLocations() {
+		locationService.backfillDeviceLocations();
+		return ResponseEntity.ok("Device locations backfilled successfully");
+	}
+
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
+	@PutMapping("/assign-billing-type/{deviceId}")
+	public ResponseEntity<DeviceResponseDto> assignBillingType(@PathVariable Long deviceId,
+			@RequestBody @Valid AssignBillingTypeRequestDto request) {
+
+		return ResponseEntity.ok(deviceService.assignBillingType(deviceId, request));
 	}
 
 }

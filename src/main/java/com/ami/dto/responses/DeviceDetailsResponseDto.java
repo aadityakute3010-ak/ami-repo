@@ -2,6 +2,7 @@ package com.ami.dto.responses;
 
 import java.time.LocalDateTime;
 
+import com.ami.enums.BillingType;
 import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.DeviceStatus;
 import com.ami.enums.SourceType;
@@ -43,6 +44,8 @@ public class DeviceDetailsResponseDto {
     private LocalDateTime lastSyncTime;
 
     private DeviceHealthStatus healthStatus;
+    
+    private BillingType billingType;
 
     // Assignment
     private String assignedAdmin;

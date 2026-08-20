@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.ami.dto.requests.CreateDeviceTelemetryRequestDto;
 import com.ami.dto.responses.DeviceAnalyticsResponseDto;
-import com.ami.dto.responses.DeviceDashboardResponseDto;
+import com.ami.dto.responses.DeviceMetricsDashboardResponseDto;
 import com.ami.dto.responses.DeviceTelemetryResponseDto;
 import com.ami.service.DeviceTelemetryService;
 
@@ -14,68 +14,58 @@ import com.ami.service.DeviceTelemetryService;
 @RequestMapping("/api/telemetry")
 public class DeviceTelemetryController {
 
-    private final DeviceTelemetryService service;
+	private final DeviceTelemetryService service;
 
-    public DeviceTelemetryController(
-            DeviceTelemetryService service) {
+	public DeviceTelemetryController(DeviceTelemetryService service) {
 
-        this.service = service;
-    }
+		this.service = service;
+	}
 
-    @PostMapping
-    public DeviceTelemetryResponseDto createTelemetry(
-            @RequestBody CreateDeviceTelemetryRequestDto request) {
+	@PostMapping
+	public DeviceTelemetryResponseDto createTelemetry(@RequestBody CreateDeviceTelemetryRequestDto request) {
 
-        return service.createTelemetry(request);
-    }
+		return service.createTelemetry(request);
+	}
 
-    @GetMapping
-    public List<DeviceTelemetryResponseDto> getAllTelemetry() {
+	@GetMapping
+	public List<DeviceTelemetryResponseDto> getAllTelemetry() {
 
-        return service.getAllTelemetry();
-    }
+		return service.getAllTelemetry();
+	}
 
-    @GetMapping("/{id}")
-    public DeviceTelemetryResponseDto getTelemetryById(
-            @PathVariable Long id) {
+	@GetMapping("/{id}")
+	public DeviceTelemetryResponseDto getTelemetryById(@PathVariable Long id) {
 
-        return service.getTelemetryById(id);
-    }
+		return service.getTelemetryById(id);
+	}
 
-    @GetMapping("/device/{deviceId}")
-    public List<DeviceTelemetryResponseDto>
-    getTelemetryByDeviceId(
-            @PathVariable String deviceId) {
+	@GetMapping("/device/{deviceId}")
+	public List<DeviceTelemetryResponseDto> getTelemetryByDeviceId(@PathVariable String deviceId) {
 
-        return service.getTelemetryByDeviceId(deviceId);
-    }
+		return service.getTelemetryByDeviceId(deviceId);
+	}
 
-    @GetMapping("/latest/{deviceId}")
-    public DeviceTelemetryResponseDto
-    getLatestTelemetry(
-            @PathVariable String deviceId) {
+	@GetMapping("/latest/{deviceId}")
+	public DeviceTelemetryResponseDto getLatestTelemetry(@PathVariable String deviceId) {
 
-        return service.getLatestTelemetry(deviceId);
-    }
+		return service.getLatestTelemetry(deviceId);
+	}
 
-    @GetMapping("/dashboard")
-    public DeviceDashboardResponseDto
-    getDashboard() {
+	@GetMapping("/dashboard")
+	public DeviceMetricsDashboardResponseDto getDashboard() {
 
-        return service.getDashboard();
-    }
+		return service.getDashboard();
+	}
 
-    @GetMapping("/analytics")
-    public DeviceAnalyticsResponseDto
-    getAnalytics() {
+	@GetMapping("/analytics")
+	public DeviceAnalyticsResponseDto getAnalytics() {
 
-        return service.getAnalytics();
-    }
+		return service.getAnalytics();
+	}
 
-    @DeleteMapping("/{id}")
-    public String deleteTelemetry(
-            @PathVariable Long id) {
+	@DeleteMapping("/{id}")
+	public String deleteTelemetry(@PathVariable Long id) {
 
-        return service.deleteTelemetry(id);
-    }
+		return service.deleteTelemetry(id);
+	}
 }

@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import com.ami.entity.Device;
+import com.ami.enums.BillingType;
 import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.DeviceStatus;
 import com.ami.enums.SourceType;
@@ -67,9 +68,36 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 			AND (:status IS NULL OR m.status = :status)
 			AND (:sourceType IS NULL OR m.sourceType = :sourceType)
 			AND (:technologyType IS NULL OR m.technologyType = :technologyType)
+			AND (:fromDateTime IS NULL OR d.createdAt >= :fromDateTime)
+			AND (:toDateTime IS NULL OR d.createdAt <= :toDateTime)
 			""")
 	Page<Device> findDevicesWithFilters(Long adminId, Long userId, String search, DeviceStatus status,
-			SourceType sourceType, TechnologyType technologyType, Pageable pageable);
+			SourceType sourceType, TechnologyType technologyType, LocalDateTime fromDateTime, LocalDateTime toDateTime,
+			Pageable pageable);
+
+	@Query("""
+			SELECT d
+			FROM Device d
+			LEFT JOIN d.meter m
+			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
+			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (
+			     :search IS NULL
+			     OR LOWER(d.deviceName) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.deviceId) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.macAddress) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.serialNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(m.meterName) LIKE LOWER(CONCAT('%', :search, '%'))
+			     OR LOWER(d.customerName) LIKE LOWER(CONCAT('%', :search, '%'))
+			)
+			AND (:status IS NULL OR m.status = :status)
+			AND (:sourceType IS NULL OR m.sourceType = :sourceType)
+			AND (:technologyType IS NULL OR m.technologyType = :technologyType)
+			AND (:fromDateTime IS NULL OR d.createdAt >= :fromDateTime)
+			AND (:toDateTime IS NULL OR d.createdAt <= :toDateTime)
+			""")
+	List<Device> findDevicesWithFiltersForExport(Long adminId, Long userId, String search, DeviceStatus status,
+			SourceType sourceType, TechnologyType technologyType, LocalDateTime fromDateTime, LocalDateTime toDateTime);
 
 	List<Device> findByAssignedAdminId(Long adminId);
 
@@ -104,11 +132,28 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
 	List<Device> findTop10ByAssignedUserIdAndHealthStatusOrderByLastSyncTimeAsc(Long userId,
 			DeviceHealthStatus healthStatus);
-	
+
 	boolean existsByDeviceIdAndIdNot(String deviceId, Long id);
 
 	boolean existsByMacAddressAndIdNot(String macAddress, Long id);
 
 	boolean existsBySerialNumberAndIdNot(String serialNumber, Long id);
+
+	@Query("""
+			SELECT d
+			FROM Device d
+			JOIN d.meter m
+			WHERE m.status = com.ami.enums.DeviceStatus.ACTIVE
+			""")
+	List<Device> findAllActiveDevices();
+
+	@Query("""
+			SELECT d
+			FROM Device d
+			JOIN d.meter m
+			WHERE d.billingType = :billingType
+			AND m.status = com.ami.enums.DeviceStatus.ACTIVE
+			""")
+	List<Device> findActiveDevicesByBillingType(BillingType billingType);
 
 }

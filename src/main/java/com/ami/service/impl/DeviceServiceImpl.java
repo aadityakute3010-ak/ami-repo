@@ -5,7 +5,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +28,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import com.ami.dto.requests.AssignBillingTypeRequestDto;
 import com.ami.dto.requests.CommunicationSettingsDto;
 import com.ami.dto.requests.CreateDeviceRequestDto;
 import com.ami.dto.requests.CreateDevicesRequestDto;
@@ -40,6 +44,7 @@ import com.ami.dto.responses.DeviceDashboardResponseDto;
 import com.ami.dto.responses.DeviceDetailsResponseDto;
 import com.ami.dto.responses.DeviceHealthChartDto;
 import com.ami.dto.responses.DeviceListResponseDto;
+import com.ami.dto.responses.DeviceMapMarkerDto;
 import com.ami.dto.responses.DeviceResponseDto;
 import com.ami.dto.responses.DeviceStatusChartDto;
 import com.ami.dto.responses.DeviceUpdateFormResponseDto;
@@ -48,8 +53,10 @@ import com.ami.dto.responses.OfflineDeviceDto;
 import com.ami.dto.responses.PagedDeviceResponseDto;
 import com.ami.entity.Device;
 import com.ami.entity.DeviceAudit;
+import com.ami.entity.DeviceLocation;
 import com.ami.entity.Meter;
 import com.ami.entity.User;
+import com.ami.enums.BillingType;
 import com.ami.enums.DeleteType;
 import com.ami.enums.DeviceHealthStatus;
 import com.ami.enums.DeviceStatus;
@@ -58,9 +65,11 @@ import com.ami.enums.SourceType;
 import com.ami.enums.TechnologyType;
 import com.ami.exception.ResourceNotFoundException;
 import com.ami.repository.DeviceAuditRepository;
+import com.ami.repository.DeviceLocationRepository;
 import com.ami.repository.DeviceRepository;
 import com.ami.repository.UserRepository;
 import com.ami.service.DeviceService;
+import com.ami.service.LocationService;
 import com.lowagie.text.Document;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
@@ -74,6 +83,7 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import com.ami.enums.DeviceLocationSource;
 
 @Service
 @RequiredArgsConstructor
@@ -84,6 +94,10 @@ public class DeviceServiceImpl implements DeviceService {
 	private final UserRepository userRepository;
 
 	private final DeviceAuditRepository deviceAuditRepository;
+
+	private final LocationService locationService;
+
+	private final DeviceLocationRepository deviceLocationRepository;
 
 	private User getLoggedInUser() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -141,6 +155,35 @@ public class DeviceServiceImpl implements DeviceService {
 
 		if (deviceRepository.existsBySerialNumber(serialNumber)) {
 			throw new RuntimeException("Serial already exists: " + serialNumber);
+		}
+	}
+
+	@Override
+	public List<SourceType> getAssignedSourceTypes() {
+
+		User loggedInUser = getLoggedInUser();
+
+		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
+			return List.of(SourceType.WATER, SourceType.ENERGY, SourceType.GAS, SourceType.SOLAR);
+		}
+
+		if (loggedInUser.getAssignedSources() == null || loggedInUser.getAssignedSources().isEmpty()) {
+			return List.of();
+		}
+
+		return loggedInUser.getAssignedSources().stream().toList();
+	}
+
+	private LocalDate parseDate(String date) {
+
+		if (date == null || date.isBlank()) {
+			return null;
+		}
+
+		try {
+			return LocalDate.parse(date.trim());
+		} catch (DateTimeParseException e) {
+			throw new IllegalArgumentException("Invalid date format. Expected format is yyyy-MM-dd");
 		}
 	}
 
@@ -212,6 +255,8 @@ public class DeviceServiceImpl implements DeviceService {
 
 		List<Device> savedDevices = deviceRepository.saveAll(devicesToSave);
 		for (Device savedDevice : savedDevices) {
+			locationService.saveOrUpdateDeviceLocation(savedDevice, DeviceLocationSource.DEVICE_CREATE);
+
 			saveAudit(savedDevice, "DEVICE_CREATED", "Device created successfully",
 					superAdmin.getFirstName() + " " + superAdmin.getLastName());
 		}
@@ -230,6 +275,7 @@ public class DeviceServiceImpl implements DeviceService {
 				.technologyType(device.getMeter() != null ? device.getMeter().getTechnologyType() : null)
 				.sourceType(device.getMeter() != null ? device.getMeter().getSourceType() : null)
 				.status(device.getMeter() != null ? device.getMeter().getStatus() : null)
+				.billingType(device.getBillingType())
 
 				// Runtime
 				.healthStatus(device.getHealthStatus())
@@ -255,9 +301,20 @@ public class DeviceServiceImpl implements DeviceService {
 				.panelCount(device.getMeter() != null ? device.getMeter().getPanelCount() : null)
 
 				// Assignment
+//				.assignedAdminName(device.getAssignedAdmin() != null
+//						? device.getAssignedAdmin().getFirstName() + " " + device.getAssignedAdmin().getLastName()
+//						: null)
+//
+//				.assignedUserName(device.getAssignedUser() != null
+//						? device.getAssignedUser().getFirstName() + " " + device.getAssignedUser().getLastName()
+//						: null)
+				.assignedAdminId(device.getAssignedAdmin() != null ? device.getAssignedAdmin().getId() : null)
+
 				.assignedAdminName(device.getAssignedAdmin() != null
 						? device.getAssignedAdmin().getFirstName() + " " + device.getAssignedAdmin().getLastName()
 						: null)
+
+				.assignedUserId(device.getAssignedUser() != null ? device.getAssignedUser().getId() : null)
 
 				.assignedUserName(device.getAssignedUser() != null
 						? device.getAssignedUser().getFirstName() + " " + device.getAssignedUser().getLastName()
@@ -269,7 +326,7 @@ public class DeviceServiceImpl implements DeviceService {
 
 	@Override
 	public PagedDeviceResponseDto getDevices(int page, int size, String search, DeviceStatus status,
-			SourceType sourceType, TechnologyType technologyType) {
+			SourceType sourceType, TechnologyType technologyType, String fromDate, String toDate) {
 
 		User loggedInUser = getLoggedInUser();
 		Pageable pageable = PageRequest.of(page, size);
@@ -278,30 +335,35 @@ public class DeviceServiceImpl implements DeviceService {
 		Long userId = null;
 
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
-			// SUPER ADMIN can see all devices
 			adminId = null;
 			userId = null;
 
 		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
-			// ADMIN can see only devices assigned to him
 			adminId = loggedInUser.getId();
 
 		} else if (loggedInUser.getRole() == RoleType.USER) {
-			// USER can see only devices assigned to him
 			userId = loggedInUser.getId();
 
 		} else {
 			throw new RuntimeException("Access Denied");
 		}
 
+		LocalDate parsedFromDate = parseDate(fromDate);
+		LocalDate parsedToDate = parseDate(toDate);
+
+		LocalDateTime fromDateTime = parsedFromDate != null ? parsedFromDate.atStartOfDay() : null;
+
+		LocalDateTime toDateTime = parsedToDate != null ? parsedToDate.atTime(23, 59, 59) : null;
+
 		Page<Device> devicePage = deviceRepository.findDevicesWithFilters(adminId, userId, search, status, sourceType,
-				technologyType, pageable);
+				technologyType, fromDateTime, toDateTime, pageable);
 
 		PagedDeviceResponseDto response = new PagedDeviceResponseDto();
 		response.setDevices(devicePage.getContent().stream().map(this::mapToDeviceListResponse).toList());
 		response.setCurrentPage(devicePage.getNumber());
 		response.setTotalPages(devicePage.getTotalPages());
 		response.setTotalElements(devicePage.getTotalElements());
+
 		return response;
 	}
 
@@ -314,15 +376,18 @@ public class DeviceServiceImpl implements DeviceService {
 		dto.setDeviceName(device.getDeviceName());
 		dto.setSourceType(meter != null ? meter.getSourceType() : null);
 		dto.setTechnologyType(meter != null ? meter.getTechnologyType() : null);
+		dto.setBillingType(device!=null ? device.getBillingType() : null); 
 		dto.setSerialNumber(device.getSerialNumber());
 		dto.setMacAddress(device.getMacAddress());
 		dto.setStatus(meter != null ? meter.getStatus() : null);
 		dto.setOnline(device.getOnline());
 		if (device.getAssignedAdmin() != null) {
+			dto.setAssignedAdminId(device.getAssignedAdmin().getId());
 			dto.setAssignedAdmin(
 					device.getAssignedAdmin().getFirstName() + " " + device.getAssignedAdmin().getLastName());
 		}
 		if (device.getAssignedUser() != null) {
+			dto.setAssignedUserId(device.getAssignedUser().getId());
 			dto.setAssignedUser(device.getAssignedUser().getFirstName() + " " + device.getAssignedUser().getLastName());
 		}
 		return dto;
@@ -334,6 +399,10 @@ public class DeviceServiceImpl implements DeviceService {
 		User loggedInUser = getLoggedInUser();
 		Device device = deviceRepository.findById(deviceId).orElseThrow(() -> new RuntimeException("Device not found"));
 
+		Meter meter = device.getMeter();
+		if (meter == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
 		if (device.getMeter().getStatus().equals(DeviceStatus.INACTIVE)) {
 			throw new RuntimeException("Cannot assign inactive device");
 		}
@@ -365,17 +434,26 @@ public class DeviceServiceImpl implements DeviceService {
 		}
 
 		// Checks if the User have the source of that Device Type
-		Meter meter = device.getMeter();
-		if (meter == null) {
-			throw new RuntimeException("Meter not configured for device");
-		}
 		SourceType sourceType = meter.getSourceType();
 		if (!targetUser.getAssignedSources().contains(sourceType)) {
 			throw new RuntimeException("User does not have access to source: " + sourceType);
 		}
 		device.setAssignedUser(targetUser);
+		fillCustomerInfoFromUser(device, targetUser);
 		Device updatedDevice = deviceRepository.save(device);
+		locationService.saveOrUpdateDeviceLocationFromUser(updatedDevice, targetUser);
 		return mapToResponse(updatedDevice);
+	}
+
+	private void fillCustomerInfoFromUser(Device device, User user) {
+
+		String fullName = ((user.getFirstName() != null ? user.getFirstName() : "") + " "
+				+ (user.getLastName() != null ? user.getLastName() : "")).trim();
+
+		device.setCustomerName(fullName.isBlank() ? null : fullName);
+		device.setCustomerAddress(user.getAddress());
+		device.setCity(user.getCity());
+		device.setState(user.getState());
 	}
 
 	public List<DeviceResponseDto> getAvailableDevicesForAssignment(Long userId) {
@@ -487,6 +565,7 @@ public class DeviceServiceImpl implements DeviceService {
 				.sourceType(meter != null ? meter.getSourceType() : null)
 				.technologyType(meter != null ? meter.getTechnologyType() : null)
 				.status(meter != null ? meter.getStatus() : null)
+				.billingType(device.getBillingType())
 
 				// Runtime
 				.online(device.getOnline()).lastSyncTime(device.getLastSyncTime())
@@ -578,6 +657,7 @@ public class DeviceServiceImpl implements DeviceService {
 				throw new RuntimeException("Only Super Admin can permanently delete devices");
 			}
 
+			deviceLocationRepository.deleteByDeviceId(device.getId());
 			deviceRepository.delete(device);
 			return "Device permanently deleted";
 		}
@@ -805,7 +885,30 @@ public class DeviceServiceImpl implements DeviceService {
 			}
 		}
 
+		// SUPER ADMIN can change assigned admin
+
+		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN && request.getAssignedAdminId() != null) {
+
+			User admin = userRepository.findById(request.getAssignedAdminId())
+					.orElseThrow(() -> new RuntimeException("Admin not found"));
+
+			device.setAssignedAdmin(admin);
+		}
+
+		// ADMIN + SUPER ADMIN can change assigned user
+
+		if (request.getAssignedUserId() != null) {
+
+			User user = userRepository.findById(request.getAssignedUserId())
+					.orElseThrow(() -> new RuntimeException("User not found"));
+
+			device.setAssignedUser(user);
+
+			fillCustomerInfoFromUser(device, user);
+		}
+
 		Device updatedDevice = deviceRepository.save(device);
+		locationService.saveOrUpdateDeviceLocation(updatedDevice, DeviceLocationSource.DEVICE_UPDATE);
 
 		saveAudit(updatedDevice, "DEVICE_UPDATED", "Device configuration updated",
 				loggedInUser.getFirstName() + " " + loggedInUser.getLastName());
@@ -1071,11 +1174,11 @@ public class DeviceServiceImpl implements DeviceService {
 
 	private Double parseDouble(String value) {
 
-	    if (value == null || value.trim().isEmpty()) {
-	        return null;
-	    }
+		if (value == null || value.trim().isEmpty()) {
+			return null;
+		}
 
-	    return Double.valueOf(value.trim());
+		return Double.valueOf(value.trim());
 	}
 
 	private Integer parseInteger(String value) {
@@ -1429,28 +1532,36 @@ public class DeviceServiceImpl implements DeviceService {
 	}
 
 	@Override
-	public ExportFileResponseDto exportDevices(String fileType) {
+	public ExportFileResponseDto exportDevices(String fileType, String search, DeviceStatus status,
+			SourceType sourceType, TechnologyType technologyType, String fromDate, String toDate) {
 
 		User loggedInUser = getLoggedInUser();
 
-		List<Device> devices;
+		Long adminId = null;
+		Long userId = null;
 
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
-
-			devices = deviceRepository.findAll();
+			adminId = null;
+			userId = null;
 
 		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
-
-			devices = deviceRepository.findByAssignedAdminId(loggedInUser.getId());
+			adminId = loggedInUser.getId();
 
 		} else if (loggedInUser.getRole() == RoleType.USER) {
-
-			devices = deviceRepository.findByAssignedUserId(loggedInUser.getId());
+			userId = loggedInUser.getId();
 
 		} else {
-
 			throw new RuntimeException("Access Denied");
 		}
+
+		LocalDate parsedFromDate = parseDate(fromDate);
+		LocalDate parsedToDate = parseDate(toDate);
+
+		LocalDateTime fromDateTime = parsedFromDate != null ? parsedFromDate.atStartOfDay() : null;
+		LocalDateTime toDateTime = parsedToDate != null ? parsedToDate.atTime(23, 59, 59) : null;
+
+		List<Device> devices = deviceRepository.findDevicesWithFiltersForExport(adminId, userId, search, status,
+				sourceType, technologyType, fromDateTime, toDateTime);
 
 		if (fileType == null || fileType.isBlank()) {
 			fileType = "csv";
@@ -1735,87 +1846,137 @@ public class DeviceServiceImpl implements DeviceService {
 	}
 
 	@Override
-	public byte[] exportDevicesToCsv() {
+	public List<DeviceMapMarkerDto> getDeviceMapMarkers() {
 
 		User loggedInUser = getLoggedInUser();
 
-		List<Device> devices;
+		Long adminId = null;
+		Long userId = null;
 
 		if (loggedInUser.getRole() == RoleType.SUPER_ADMIN) {
-
-			devices = deviceRepository.findAll();
-
+			adminId = null;
+			userId = null;
 		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
-
-			devices = deviceRepository.findByAssignedAdminId(loggedInUser.getId());
-
+			adminId = loggedInUser.getId();
 		} else if (loggedInUser.getRole() == RoleType.USER) {
-
-			devices = deviceRepository.findByAssignedUserId(loggedInUser.getId());
-
+			userId = loggedInUser.getId();
 		} else {
-
 			throw new RuntimeException("Access Denied");
 		}
 
-		try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-				CSVPrinter csvPrinter = new CSVPrinter(new PrintWriter(out), CSVFormat.DEFAULT)) {
+		return deviceLocationRepository.findDeviceMapMarkers(adminId, userId).stream().map(this::mapToDeviceMapMarker)
+				.toList();
+	}
 
-			csvPrinter.printRecord("deviceId", "deviceName", "macAddress", "serialNumber",
+	private DeviceMapMarkerDto mapToDeviceMapMarker(DeviceLocation location) {
 
-					"meterName", "sourceType", "technologyType", "status", "meterType", "application", "diameterSize",
-					"literPerPulse", "ctRatio", "ptRatio", "voltageClass", "inverterType", "plantCapacity",
-					"panelCount", "meterStartReading",
+		Device device = location.getDevice();
+		Meter meter = device.getMeter();
 
-					"customerName", "customerAddress", "buildingOrWing", "area", "zone", "city", "state",
-					"meterLocation",
+		return DeviceMapMarkerDto.builder().deviceIdPk(device.getId()).deviceId(device.getDeviceId())
+				.deviceName(device.getDeviceName()).customerName(device.getCustomerName())
+				.address(location.getAddress()).city(location.getCity()).state(location.getState())
+				.country(location.getCountry()).latitude(location.getLatitude()).longitude(location.getLongitude())
+				.sourceType(meter != null ? meter.getSourceType() : null)
+				.status(meter != null ? meter.getStatus() : null).online(device.getOnline())
+				.locationSource(location.getLocationSource()).build();
+	}
 
-					"wakeupTime", "dataSampleCount",
+	private void validateBillingTypeChange(Device device, BillingType currentBillingType, BillingType newBillingType) {
 
-					"assignedAdmin", "assignedUser", "online");
+		if (currentBillingType == null) {
+			return;
+		}
 
-			for (Device device : devices) {
+		if (currentBillingType == BillingType.POSTPAID && newBillingType == BillingType.PREPAID) {
 
-				Meter meter = device.getMeter();
+			validatePostpaidToPrepaid(device);
+			return;
+		}
 
-				csvPrinter.printRecord(device.getDeviceId(), device.getDeviceName(), device.getMacAddress(),
-						device.getSerialNumber(),
+		if (currentBillingType == BillingType.PREPAID && newBillingType == BillingType.POSTPAID) {
 
-						meter != null ? meter.getMeterName() : null, meter != null ? meter.getSourceType() : null,
-						meter != null ? meter.getTechnologyType() : null, meter != null ? meter.getStatus() : null,
-						meter != null ? meter.getMeterType() : null, meter != null ? meter.getApplication() : null,
-						meter != null ? meter.getDiameterSize() : null, meter != null ? meter.getLiterPerPulse() : null,
-						meter != null ? meter.getCtRatio() : null, meter != null ? meter.getPtRatio() : null,
-						meter != null ? meter.getVoltageClass() : null, meter != null ? meter.getInverterType() : null,
-						meter != null ? meter.getPlantCapacity() : null, meter != null ? meter.getPanelCount() : null,
-						meter != null ? meter.getMeterStartReading() : null,
-
-						device.getCustomerName(), device.getCustomerAddress(), device.getBuildingOrWing(),
-						device.getArea(), device.getZone(), device.getCity(), device.getState(),
-						device.getMeterLocation(),
-
-						device.getWakeupTime(), device.getDataSampleCount(),
-
-						device.getAssignedAdmin() != null
-								? device.getAssignedAdmin().getFirstName() + " "
-										+ device.getAssignedAdmin().getLastName()
-								: "",
-
-						device.getAssignedUser() != null
-								? device.getAssignedUser().getFirstName() + " " + device.getAssignedUser().getLastName()
-								: "",
-
-						device.getOnline());
-			}
-
-			csvPrinter.flush();
-
-			return out.toByteArray();
-
-		} catch (Exception e) {
-
-			throw new RuntimeException("Failed to export devices", e);
+			validatePrepaidToPostpaid(device);
 		}
 	}
 
-}
+	private void validatePostpaidToPrepaid(Device device) {
+
+		/*
+		 * Rule: POSTPAID → PREPAID allowed only after current billing cycle/month is
+		 * completed and no unpaid/pending invoice exists.
+		 *
+		 * Later connect:
+		 * invoiceRepository.existsPendingInvoiceForDevice(device.getId())
+		 */
+
+		LocalDate today = LocalDate.now();
+		LocalDate lastDayOfMonth = today.withDayOfMonth(today.lengthOfMonth());
+
+		if (!today.equals(lastDayOfMonth)) {
+			throw new RuntimeException(
+					"Postpaid device can be changed to prepaid only after current billing month is completed");
+		}
+	}
+
+	private void validatePrepaidToPostpaid(Device device) {
+
+		/*
+		 * Rule: PREPAID → POSTPAID allowed only when prepaid balance is zero/finished.
+		 *
+		 * Later connect: walletRepository.findBalanceByDeviceId(device.getId())
+		 */
+
+		Double currentBalance = 0.0;
+
+		if (currentBalance > 0) {
+			throw new RuntimeException(
+					"Prepaid device can be changed to postpaid only after prepaid balance is finished");
+		}
+	}
+
+	@Override
+	@Transactional
+	public DeviceResponseDto assignBillingType(Long deviceId, AssignBillingTypeRequestDto request) {
+
+		User loggedInUser = getLoggedInUser();
+
+		if (loggedInUser.getRole() != RoleType.SUPER_ADMIN && loggedInUser.getRole() != RoleType.ADMIN) {
+			throw new RuntimeException("Only Admin or Super Admin can assign billing type");
+		}
+
+		Device device = deviceRepository.findById(deviceId)
+				.orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+
+		if (device.getMeter() == null) {
+			throw new RuntimeException("Meter not configured for device");
+		}
+
+		if (device.getMeter().getStatus() == DeviceStatus.INACTIVE) {
+			throw new RuntimeException("Cannot assign billing type to inactive device");
+		}
+
+		if (loggedInUser.getRole() == RoleType.ADMIN) {
+
+			if (device.getAssignedAdmin() == null || !device.getAssignedAdmin().getId().equals(loggedInUser.getId())) {
+				throw new RuntimeException("You are not authorized to update this device billing type");
+			}
+		}
+
+		BillingType currentBillingType = device.getBillingType();
+		BillingType newBillingType = request.getBillingType();
+
+		if (currentBillingType == newBillingType) {
+			throw new RuntimeException("Device already has billing type: " + newBillingType);
+		}
+
+		validateBillingTypeChange(device, currentBillingType, newBillingType);
+
+		device.setBillingType(newBillingType);
+
+		Device savedDevice = deviceRepository.save(device);
+
+		return mapToResponse(savedDevice);
+	}
+
+} 

@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 
 import com.ami.dto.requests.CreateDeviceTelemetryRequestDto;
 import com.ami.dto.responses.DeviceAnalyticsResponseDto;
-import com.ami.dto.responses.DeviceDashboardResponseDto;
+import com.ami.dto.responses.DeviceMetricsDashboardResponseDto;
 import com.ami.dto.responses.DeviceTelemetryResponseDto;
 import com.ami.entity.DeviceTelemetry;
 import com.ami.repository.DeviceTelemetryRepository;
@@ -128,7 +128,7 @@ public class DeviceTelemetryServiceImpl
     }
 
     @Override
-    public DeviceDashboardResponseDto
+    public DeviceMetricsDashboardResponseDto
     getDashboard() {
 
         List<DeviceTelemetry> list =
@@ -192,7 +192,7 @@ public class DeviceTelemetryServiceImpl
                         .average()
                         .orElse(0);
 
-        return DeviceDashboardResponseDto
+        return DeviceMetricsDashboardResponseDto
                 .builder()
                 .totalDevices(
                         totalDevices)

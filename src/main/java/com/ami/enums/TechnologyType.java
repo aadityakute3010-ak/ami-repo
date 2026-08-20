@@ -4,5 +4,7 @@ public enum TechnologyType {
     FOUR_G,
     WIFI,
     ETHERNET,
-    NB_IOT
+    NB_IOT,
+    BLE,
+    GSM
 }   

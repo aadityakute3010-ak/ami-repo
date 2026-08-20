@@ -1,9 +1,9 @@
 package com.ami.enums;
 
 public enum InvoiceStatus {
-
-    PAID,
+    DRAFT,
     PENDING,
-    OVERDUE
-
+    PAID,
+    OVERDUE,
+    FAILED
 }

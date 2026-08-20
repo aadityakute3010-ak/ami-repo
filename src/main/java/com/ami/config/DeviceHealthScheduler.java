@@ -1,37 +1,40 @@
 package com.ami.config;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
+import com.ami.entity.Device;
+import com.ami.enums.DeviceHealthStatus;
+import com.ami.repository.DeviceRepository;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.ami.entity.Device;
-import com.ami.repository.DeviceRepository;
-import com.ami.enums.DeviceHealthStatus;
-import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class DeviceHealthScheduler {
 
-	private final DeviceRepository deviceRepository;
+    private final DeviceRepository deviceRepository;
 
-	@Scheduled(fixedRate = 300000) // 5 min
-	@Transactional
-	public void markOfflineDevices() {
+    private static final long OFFLINE_AFTER_SECONDS = 40;
 
-		LocalDateTime threshold = LocalDateTime.now().minusMinutes(30);
+    @Scheduled(fixedRate = 10000) // check every 10 sec
+    @Transactional
+    public void markOfflineDevices() {
 
-		List<Device> devices = deviceRepository.findByOnlineTrueAndLastSyncTimeBefore(threshold);
+        LocalDateTime threshold = LocalDateTime.now().minusSeconds(OFFLINE_AFTER_SECONDS);
 
-		for (Device device : devices) {
+        List<Device> devices =
+                deviceRepository.findByOnlineTrueAndLastSyncTimeBefore(threshold);
 
-			device.setOnline(false);
-			device.setHealthStatus(DeviceHealthStatus.OFFLINE);
-		}
+        for (Device device : devices) {
+            device.setOnline(false);
+            device.setHealthStatus(DeviceHealthStatus.OFFLINE);
 
-		deviceRepository.saveAll(devices);
-	}
+            System.out.println("DEVICE MARKED OFFLINE: " + device.getDeviceId());
+        }
+
+        deviceRepository.saveAll(devices);
+    }
 }

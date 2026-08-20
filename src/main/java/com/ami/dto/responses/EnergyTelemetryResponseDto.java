@@ -9,13 +9,22 @@ import lombok.Data;
 @Builder
 public class EnergyTelemetryResponseDto {
 
-    private Double voltage;
-    private Double current;
-    private Double power;
-    private Double frequency;
-    private Double powerFactor;
-    private Double energyConsumed;
-    private Double batteryLevel;
-    private Double signalStrength;
-    private LocalDateTime readingTime;
+	private Double voltage;
+	private Double current;
+	private Double power;
+	private Double frequency;
+	private Double powerFactor;
+	private Double energyConsumed;
+	private Double batteryLevel;
+	private Double signalStrength;
+	private LocalDateTime readingTime;
+	private Double activePower;
+
+	private Double reactivePower;
+
+	private Double apparentPower;
+
+	private Double load;
+
+	private Double demand;
 }

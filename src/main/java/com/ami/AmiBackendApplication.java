@@ -12,3 +12,4 @@ public class AmiBackendApplication {
 		SpringApplication.run(AmiBackendApplication.class, args);
 	}
 }
+ 

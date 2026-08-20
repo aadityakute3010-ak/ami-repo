@@ -12,57 +12,46 @@ import com.ami.service.DeviceOperationService;
 @RequestMapping("/api/device-operations")
 public class DeviceOperationController {
 
-    private final DeviceOperationService service;
+	private final DeviceOperationService service;
 
-    public DeviceOperationController(
-            DeviceOperationService service) {
+	public DeviceOperationController(DeviceOperationService service) {
 
-        this.service = service;
-    }
+		this.service = service;
+	}
 
-    @PostMapping
-    public DeviceOperationResponseDto createOperation(
-            @RequestBody CreateDeviceOperationRequestDto request) {
+	@PostMapping
+	public DeviceOperationResponseDto createOperation(@RequestBody CreateDeviceOperationRequestDto request) {
 
-        return service.createOperation(request);
-    }
+		return service.createOperation(request);
+	}
 
-    @GetMapping
-    public List<DeviceOperationResponseDto>
-    getAllOperations() {
+	@GetMapping
+	public List<DeviceOperationResponseDto> getAllOperations() {
 
-        return service.getAllOperations();
-    }
+		return service.getAllOperations();
+	}
 
-    @GetMapping("/{id}")
-    public DeviceOperationResponseDto
-    getOperationById(
-            @PathVariable Long id) {
+	@GetMapping("/{id}")
+	public DeviceOperationResponseDto getOperationById(@PathVariable Long id) {
 
-        return service.getOperationById(id);
-    }
+		return service.getOperationById(id);
+	}
 
-    @GetMapping("/device/{deviceId}")
-    public List<DeviceOperationResponseDto>
-    getByDeviceId(
-            @PathVariable String deviceId) {
+	@GetMapping("/device/{deviceId}")
+	public List<DeviceOperationResponseDto> getByDeviceId(@PathVariable String deviceId) {
 
-        return service.getByDeviceId(deviceId);
-    }
+		return service.getByDeviceId(deviceId);
+	}
 
-    @GetMapping("/type/{operationType}")
-    public List<DeviceOperationResponseDto>
-    getByOperationType(
-            @PathVariable String operationType) {
+	@GetMapping("/type/{operationType}")
+	public List<DeviceOperationResponseDto> getByOperationType(@PathVariable String operationType) {
 
-        return service.getByOperationType(
-                operationType);
-    }
+		return service.getByOperationType(operationType);
+	}
 
-    @DeleteMapping("/{id}")
-    public String deleteOperation(
-            @PathVariable Long id) {
+	@DeleteMapping("/{id}")
+	public String deleteOperation(@PathVariable Long id) {
 
-        return service.deleteOperation(id);
-    }
+		return service.deleteOperation(id);
+	}
 }
