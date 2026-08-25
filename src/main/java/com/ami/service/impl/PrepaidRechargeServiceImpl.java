@@ -42,6 +42,7 @@ import com.ami.repository.PrepaidRechargePlanRepository;
 import com.ami.repository.PrepaidRechargeRepository;
 import com.ami.repository.PrepaidUsageLedgerRepository;
 import com.ami.security.SecurityUtils;
+import com.ami.service.EmailService;
 import com.ami.service.PrepaidRechargeService;
 import com.ami.service.PrepaidTariffResolverService;
 import com.ami.service.PrepaidUnitCalculationService;
@@ -71,6 +72,8 @@ public class PrepaidRechargeServiceImpl implements PrepaidRechargeService {
 	private final PrepaidBalanceRepository prepaidBalanceRepository;
 
 	private final PrepaidUsageLedgerRepository prepaidUsageLedgerRepository;
+	
+	private final EmailService emailService; 
 
 	@Override
 	@Transactional
@@ -158,6 +161,10 @@ public class PrepaidRechargeServiceImpl implements PrepaidRechargeService {
 			recharge.setUpdatedAt(LocalDateTime.now());
 			prepaidRechargeRepository.save(recharge);
 
+			emailService.sendRechargeFailureEmail(recharge.getCustomerEmail(), recharge.getCustomerName(),
+					recharge.getDevice().getDeviceId(), recharge.getRechargeNumber(),
+					recharge.getAmount(), "INR", recharge.getRemarks(), recharge.getRechargeDate()); 
+
 			throw new IllegalArgumentException("Invalid Razorpay payment signature");
 		}
 
@@ -172,6 +179,16 @@ public class PrepaidRechargeServiceImpl implements PrepaidRechargeService {
 		PrepaidBalance balance = creditRechargeToBalance(savedRecharge);
 
 		createRechargeCreditLedger(savedRecharge, balance);
+
+		emailService.sendRechargeSuccessEmail(savedRecharge.getCustomerEmail(), savedRecharge.getCustomerName(),
+				savedRecharge.getDevice().getDeviceId(), savedRecharge.getRechargeNumber(), savedRecharge.getAmount(),
+				savedRecharge.getCreditedUnits(),
+				balance.getAvailableUnits().subtract(savedRecharge.getCreditedUnits()), balance.getAvailableUnits(),
+				savedRecharge.getRazorpayPaymentId(), savedRecharge.getPaymentMethod().name(), "INR",
+				savedRecharge.getRechargeDate());
+		
+		balance.setLowBalanceNotificationSent(false);
+		balance.setVeryLowBalanceNotificationSent(false);
 
 		return mapToRechargeResponse(savedRecharge, balance);
 	}
@@ -217,6 +234,7 @@ public class PrepaidRechargeServiceImpl implements PrepaidRechargeService {
 				.ledgerType(PrepaidLedgerType.RECHARGE_CREDIT).units(recharge.getCreditedUnits())
 				.readingBefore(balance.getLastMeterReading()).readingAfter(balance.getLastMeterReading())
 				.balanceBefore(balanceBefore).balanceAfter(balanceAfter)
+				.paymentReference(recharge.getRazorpayPaymentId())
 				.description("Prepaid recharge credited: " + recharge.getRechargeNumber()).build();
 
 		ledger.setCreatedAt(LocalDateTime.now());
@@ -381,8 +399,7 @@ public class PrepaidRechargeServiceImpl implements PrepaidRechargeService {
 
 		validateDeviceAccess(device, loggedInUser);
 
-		return prepaidBalanceRepository.findByDeviceForUpdate(device)
-				.map(balance -> mapToBalanceResponse(device, balance))
+		return prepaidBalanceRepository.findByDevice(device).map(balance -> mapToBalanceResponse(device, balance))
 				.orElseGet(() -> mapToEmptyBalanceResponse(device));
 	}
 

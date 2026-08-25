@@ -6,19 +6,19 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.ami.dto.requests.CreateAuditLogRequestDto;
+import com.ami.dto.responses.AuditDashboardResponseDto;
 import com.ami.dto.responses.AuditLogResponseDto;
+import com.ami.dto.responses.PagedAuditLogResponseDto;
 import com.ami.service.AuditService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/audit-logs")
+@RequiredArgsConstructor
 public class AuditController {
 
 	private final AuditService auditService;
-
-	public AuditController(AuditService auditService) {
-
-		this.auditService = auditService;
-	}
 
 	@PreAuthorize("hasRole('SUPER_ADMIN')")
 	@PostMapping
@@ -46,5 +46,24 @@ public class AuditController {
 	public List<AuditLogResponseDto> getLogsByEntityId(@PathVariable Long entityId) {
 
 		return auditService.getLogsByEntityId(entityId);
+	}
+
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+	@GetMapping("/billing")
+	public PagedAuditLogResponseDto getBillingAuditLogs(@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size) {
+		return auditService.getBillingAuditLogs(page, size);
+	}
+
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+	@GetMapping("/billing/dashboard")
+	public AuditDashboardResponseDto getBillingAuditDashboard() {
+		return auditService.getBillingAuditDashboard();
+	}
+
+	@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+	@GetMapping("/billing/timeline")
+	public List<AuditLogResponseDto> getBillingActivityTimeline(@RequestParam(defaultValue = "10") int limit) {
+		return auditService.getBillingActivityTimeline(limit);
 	}
 }

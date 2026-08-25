@@ -142,7 +142,8 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 	@Query("""
 			SELECT d
 			FROM Device d
-			JOIN d.meter m
+			JOIN FETCH d.meter m
+			LEFT JOIN FETCH d.assignedUser
 			WHERE m.status = com.ami.enums.DeviceStatus.ACTIVE
 			""")
 	List<Device> findAllActiveDevices();

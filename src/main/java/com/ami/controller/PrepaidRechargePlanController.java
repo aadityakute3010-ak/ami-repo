@@ -24,8 +24,7 @@ public class PrepaidRechargePlanController {
 	private final PrepaidRechargePlanService prepaidRechargePlanService;
 
 	@PostMapping("/plans")
-	public ResponseEntity<PrepaidRechargePlanResponseDto> createPlan(
-			@Valid @RequestBody CreatePrepaidRechargePlanRequestDto request) {
+	public ResponseEntity<PrepaidRechargePlanResponseDto> createPlan(@Valid @RequestBody CreatePrepaidRechargePlanRequestDto request) {
 
 		return ResponseEntity.ok(prepaidRechargePlanService.createPlan(request));
 	}

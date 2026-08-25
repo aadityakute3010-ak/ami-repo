@@ -15,6 +15,8 @@ import com.ami.repository.PayloadRepository;
 import com.ami.repository.PrepaidBalanceRepository;
 import com.ami.service.PayloadService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+@Slf4j 
 @Component
 @RequiredArgsConstructor
 public class PayloadSimulatorScheduler {
@@ -33,7 +36,7 @@ public class PayloadSimulatorScheduler {
 
 	private final Random random = new Random();
 
-	@Scheduled(fixedRate = 9000000) // every 10 sec
+	@Scheduled(fixedRate = 100000) // every 10 sec
 	public void generatePayloadForActiveDevices() {
 
 		List<Device> activeDevices = deviceRepository.findAllActiveDevices();
@@ -50,11 +53,10 @@ public class PayloadSimulatorScheduler {
 
 				payloadService.receivePayload(request);
 
-				System.out.println("SIMULATED PAYLOAD SENT: " + device.getDeviceId());
+				log.info("SIMULATED PAYLOAD SENT: {}", device.getDeviceId());
 
 			} catch (Exception e) {
-				System.out
-						.println("SIMULATOR FAILED for device " + device.getDeviceId() + ", reason: " + e.getMessage());
+				log.error("SIMULATOR FAILED for device {}, reason: {}", device.getDeviceId(), e.getMessage(), e);
 			}
 		}
 	}
@@ -105,7 +107,7 @@ public class PayloadSimulatorScheduler {
 
 	private Double getPrepaidPreviousReading(Device device, Meter meter) {
 
-		Optional<PrepaidBalance> balance = prepaidBalanceRepository.findByDeviceForUpdate(device); 
+		Optional<PrepaidBalance> balance = prepaidBalanceRepository.findByDevice(device);
 
 		if (balance.isPresent() && balance.get().getLastMeterReading() != null) {
 			return balance.get().getLastMeterReading().doubleValue();

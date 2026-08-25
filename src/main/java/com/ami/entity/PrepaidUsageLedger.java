@@ -52,4 +52,7 @@ public class PrepaidUsageLedger extends BaseEntity {
 
 	@Column(name = "description", length = 500)
 	private String description;
+
+	@Column(name = "payment_reference", length = 100)
+	private String paymentReference;
 }

@@ -45,7 +45,7 @@ public class PrepaidBalance extends BaseEntity {
 
 	@Column(name = "last_meter_reading", precision = 12, scale = 3)
 	private BigDecimal lastMeterReading;
-	
+
 	@Builder.Default
 	@Column(nullable = false)
 	private boolean consumptionBlocked = false;
@@ -59,4 +59,12 @@ public class PrepaidBalance extends BaseEntity {
 
 	@Column(name = "last_consumption_at")
 	private LocalDateTime lastConsumptionAt;
+
+	@Builder.Default
+	@Column(name = "low_balance_notification_sent", nullable = false)
+	private boolean lowBalanceNotificationSent = false;
+
+	@Builder.Default
+	@Column(name = "very_low_balance_notification_sent", nullable = false)
+	private boolean veryLowBalanceNotificationSent = false;
 }

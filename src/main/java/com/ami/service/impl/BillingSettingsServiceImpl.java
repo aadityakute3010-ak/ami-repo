@@ -21,6 +21,8 @@ import com.ami.enums.RoleType;
 import com.ami.repository.BillingSettingsRepository;
 import com.ami.security.SecurityUtils;
 import com.ami.service.BillingSettingsService;
+import com.ami.dto.requests.CreateAuditLogRequestDto;
+import com.ami.service.AuditService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +32,7 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 
 	private final BillingSettingsRepository billingSettingsRepository;
 	private final SecurityUtils securityUtils;
+	private final AuditService auditService;
 
 	@Override
 	@Transactional
@@ -48,12 +51,28 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 		User loggedInUser = securityUtils.getLoggedInUser();
 		BillingSettings settings = getOrCreateSettingsForLoggedInUser(loggedInUser);
 
+		String previousPrefix = settings.getInvoicePrefix();
+		Integer previousDueDays = settings.getInvoiceDueDays();
+		String previousCurrency = settings.getCurrency();
+
 		settings.setInvoicePrefix(request.getInvoicePrefix().trim());
 		settings.setInvoiceDueDays(request.getInvoiceDueDays());
 		settings.setCurrency(request.getCurrency().trim());
 		settings.setUpdatedAt(LocalDateTime.now());
 
 		BillingSettings saved = billingSettingsRepository.save(settings);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(saved.getId());
+		auditRequest.setEntityType("BILLING_SETTINGS");
+		auditRequest.setTargetAdminId(saved.getAdmin() != null ? saved.getAdmin().getId() : null);
+		auditRequest.setAction("UPDATED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Invoice settings updated for " + settingsOwnerLabel(saved) + ": prefix '"
+				+ previousPrefix + "' -> '" + saved.getInvoicePrefix() + "', due days " + previousDueDays + " -> "
+				+ saved.getInvoiceDueDays() + ", currency '" + previousCurrency + "' -> '" + saved.getCurrency() + "'");
+		auditService.createAuditLog(auditRequest);
 
 		return mapToResponse(saved);
 	}
@@ -67,11 +86,26 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 		User loggedInUser = securityUtils.getLoggedInUser();
 		BillingSettings settings = getOrCreateSettingsForLoggedInUser(loggedInUser);
 
+		Boolean previousTaxEnabled = settings.getTaxEnabled();
+		BigDecimal previousTaxPercentage = settings.getDefaultTaxPercentage();
+
 		settings.setTaxEnabled(request.getTaxEnabled());
 		settings.setDefaultTaxPercentage(defaultZero(request.getDefaultTaxPercentage()));
 		settings.setUpdatedAt(LocalDateTime.now());
 
 		BillingSettings saved = billingSettingsRepository.save(settings);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(saved.getId());
+		auditRequest.setEntityType("BILLING_SETTINGS");
+		auditRequest.setTargetAdminId(saved.getAdmin() != null ? saved.getAdmin().getId() : null);
+		auditRequest.setAction("UPDATED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Tax settings updated for " + settingsOwnerLabel(saved) + ": enabled "
+				+ previousTaxEnabled + " -> " + saved.getTaxEnabled() + ", percentage " + previousTaxPercentage + " -> "
+				+ saved.getDefaultTaxPercentage());
+		auditService.createAuditLog(auditRequest);
 
 		return mapToResponse(saved);
 	}
@@ -85,12 +119,29 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 		User loggedInUser = securityUtils.getLoggedInUser();
 		BillingSettings settings = getOrCreateSettingsForLoggedInUser(loggedInUser);
 
+		Boolean previousPenaltyEnabled = settings.getPenaltyEnabled();
+		BigDecimal previousPenaltyPercentage = settings.getPenaltyPercentage();
+		Integer previousGracePeriodDays = settings.getGracePeriodDays();
+
 		settings.setPenaltyEnabled(request.getPenaltyEnabled());
 		settings.setPenaltyPercentage(defaultZero(request.getPenaltyPercentage()));
 		settings.setGracePeriodDays(request.getGracePeriodDays());
 		settings.setUpdatedAt(LocalDateTime.now());
 
 		BillingSettings saved = billingSettingsRepository.save(settings);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(saved.getId());
+		auditRequest.setEntityType("BILLING_SETTINGS");
+		auditRequest.setTargetAdminId(saved.getAdmin() != null ? saved.getAdmin().getId() : null);
+		auditRequest.setAction("UPDATED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Penalty settings updated for " + settingsOwnerLabel(saved) + ": enabled "
+				+ previousPenaltyEnabled + " -> " + saved.getPenaltyEnabled() + ", percentage "
+				+ previousPenaltyPercentage + " -> " + saved.getPenaltyPercentage() + ", grace period days "
+				+ previousGracePeriodDays + " -> " + saved.getGracePeriodDays());
+		auditService.createAuditLog(auditRequest);
 
 		return mapToResponse(saved);
 	}
@@ -106,11 +157,26 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 			throw new IllegalArgumentException("Reminder before due days cannot be greater than invoice due days");
 		}
 
+		Boolean previousReminderEnabled = settings.getReminderEnabled();
+		Integer previousReminderBeforeDueDays = settings.getReminderBeforeDueDays();
+
 		settings.setReminderEnabled(request.getReminderEnabled());
 		settings.setReminderBeforeDueDays(request.getReminderBeforeDueDays());
 		settings.setUpdatedAt(LocalDateTime.now());
 
 		BillingSettings saved = billingSettingsRepository.save(settings);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(saved.getId());
+		auditRequest.setEntityType("BILLING_SETTINGS");
+		auditRequest.setTargetAdminId(saved.getAdmin() != null ? saved.getAdmin().getId() : null);
+		auditRequest.setAction("UPDATED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Reminder settings updated for " + settingsOwnerLabel(saved) + ": enabled "
+				+ previousReminderEnabled + " -> " + saved.getReminderEnabled() + ", before due days "
+				+ previousReminderBeforeDueDays + " -> " + saved.getReminderBeforeDueDays());
+		auditService.createAuditLog(auditRequest);
 
 		return mapToResponse(saved);
 	}
@@ -163,8 +229,7 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 
 		BillingSettings settings = BillingSettings.builder().admin(admin)
 				.invoicePrefix(globalSettings.getInvoicePrefix()).invoiceDueDays(globalSettings.getInvoiceDueDays())
-				.currency(globalSettings.getCurrency())
-				.taxEnabled(globalSettings.getTaxEnabled())
+				.currency(globalSettings.getCurrency()).taxEnabled(globalSettings.getTaxEnabled())
 				.defaultTaxPercentage(globalSettings.getDefaultTaxPercentage())
 				.penaltyEnabled(globalSettings.getPenaltyEnabled())
 				.penaltyPercentage(globalSettings.getPenaltyPercentage())
@@ -179,8 +244,7 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 	private BillingSettings createDefaultSettings(User admin) {
 
 		BillingSettings settings = BillingSettings.builder().admin(admin).invoicePrefix("INV").invoiceDueDays(15)
-				.currency("INR")
-				.taxEnabled(true).defaultTaxPercentage(BigDecimal.ZERO).penaltyEnabled(false)
+				.currency("INR").taxEnabled(true).defaultTaxPercentage(BigDecimal.ZERO).penaltyEnabled(false)
 				.penaltyPercentage(BigDecimal.ZERO).gracePeriodDays(0).reminderEnabled(true).reminderBeforeDueDays(3)
 				.createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
 
@@ -205,6 +269,13 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 		return value == null ? BigDecimal.ZERO : value;
 	}
 
+	private String settingsOwnerLabel(BillingSettings settings) {
+
+		User admin = settings.getAdmin();
+
+		return admin != null ? admin.getEmail() : "GLOBAL";
+	}
+
 	private BillingSettingsResponseDto mapToResponse(BillingSettings settings) {
 
 		User admin = settings.getAdmin();
@@ -213,7 +284,7 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 				.adminName(admin != null ? admin.getFirstName() + " " + admin.getLastName() : "GLOBAL")
 				.invoiceSettings(InvoiceSettingsResponseDto.builder().invoicePrefix(settings.getInvoicePrefix())
 						.invoiceDueDays(settings.getInvoiceDueDays()).currency(settings.getCurrency()).build())
-				
+
 				.taxSettings(TaxSettingsResponseDto.builder().taxEnabled(settings.getTaxEnabled())
 						.defaultTaxPercentage(settings.getDefaultTaxPercentage()).build())
 				.penaltySettings(PenaltySettingsResponseDto.builder().penaltyEnabled(settings.getPenaltyEnabled())
@@ -223,4 +294,4 @@ public class BillingSettingsServiceImpl implements BillingSettingsService {
 						.reminderBeforeDueDays(settings.getReminderBeforeDueDays()).build())
 				.createdAt(settings.getCreatedAt()).updatedAt(settings.getUpdatedAt()).build();
 	}
-} 
+}

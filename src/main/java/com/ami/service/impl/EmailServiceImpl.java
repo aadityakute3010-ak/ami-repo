@@ -9,16 +9,35 @@ import org.springframework.stereotype.Service;
 import com.ami.entity.Invoice;
 import com.ami.service.EmailService;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import com.ami.entity.Payment;
 import org.springframework.core.io.ByteArrayResource;
 
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EmailServiceImpl implements EmailService {
 
 	private final JavaMailSender mailSender;
+
+	@Value("${spring.mail.username}")
+	private String fromEmail;
 
 	@Override
 	public void sendResetPasswordEmail(String toEmail, String firstName, String resetLink) {
@@ -194,6 +213,492 @@ public class EmailServiceImpl implements EmailService {
 		} catch (Exception exception) {
 			throw new IllegalStateException("Unable to send payment receipt email: " + exception.getMessage(),
 					exception);
+		}
+	}
+
+	@Override
+	public void sendRechargeSuccessEmail(String recipientEmail, String customerName, String deviceIdentifier,
+			String rechargeNumber, BigDecimal amount, BigDecimal creditedUnits, BigDecimal balanceBefore,
+			BigDecimal balanceAfter, String paymentId, String paymentMethod, String currency,
+			LocalDateTime rechargeDate) {
+
+		try {
+			byte[] pdfReceipt = generateRechargeReceiptPdf(customerName, deviceIdentifier, rechargeNumber, amount,
+					creditedUnits, balanceBefore, balanceAfter, paymentId, paymentMethod, currency, rechargeDate);
+
+			MimeMessage message = mailSender.createMimeMessage();
+
+			MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
+
+			helper.setFrom(fromEmail);
+			helper.setTo(recipientEmail);
+			helper.setSubject("Prepaid Recharge Successful | " + rechargeNumber);
+
+			String body = buildRechargeSuccessEmailBody(customerName, deviceIdentifier, rechargeNumber, amount,
+					creditedUnits, balanceAfter, paymentId, currency, rechargeDate);
+
+			helper.setText(body, false);
+
+			helper.addAttachment("AMI-Recharge-Receipt-" + rechargeNumber + ".pdf", new ByteArrayResource(pdfReceipt));
+
+			mailSender.send(message);
+
+			log.info("Recharge success email sent successfully to {} for recharge {}", recipientEmail, rechargeNumber);
+
+		} catch (Exception e) {
+
+			log.error("Failed to send recharge success email for recharge {}", rechargeNumber, e);
+
+			throw new RuntimeException("Unable to send recharge success email", e);
+		}
+	}
+
+	// ============================================================
+	// FAILURE EMAIL
+	// ============================================================
+
+	@Override
+	public void sendRechargeFailureEmail(String recipientEmail, String customerName, String deviceIdentifier,
+			String rechargeNumber, BigDecimal amount, String currency, String failureReason,
+			LocalDateTime rechargeDate) {
+
+		try {
+
+			MimeMessage message = mailSender.createMimeMessage();
+
+			MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+
+			helper.setFrom(fromEmail);
+			helper.setTo(recipientEmail);
+
+			helper.setSubject("Prepaid Recharge Failed | " + rechargeNumber);
+
+			String body = buildRechargeFailureEmailBody(customerName, deviceIdentifier, rechargeNumber, amount,
+					currency, failureReason, rechargeDate);
+
+			helper.setText(body, false);
+
+			mailSender.send(message);
+
+			log.info("Recharge failure email sent successfully to {} for recharge {}", recipientEmail, rechargeNumber);
+
+		} catch (Exception e) {
+
+			log.error("Failed to send recharge failure email for recharge {}", rechargeNumber, e);
+
+			throw new RuntimeException("Unable to send recharge failure email", e);
+		}
+	}
+
+	// ============================================================
+	// SUCCESS EMAIL BODY
+	// ============================================================
+
+	private String buildRechargeSuccessEmailBody(String customerName, String deviceIdentifier, String rechargeNumber,
+			BigDecimal amount, BigDecimal creditedUnits, BigDecimal balanceAfter, String paymentId, String currency,
+			LocalDateTime rechargeDate) {
+
+		return """
+				Dear %s,
+
+				Your prepaid recharge has been completed successfully.
+
+				We have received and verified your payment, and the
+				corresponding prepaid units have been credited to your device.
+
+				============================================================
+				RECHARGE DETAILS
+				============================================================
+
+				Recharge Number : %s
+				Device          : %s
+				Payment ID      : %s
+				Recharge Date   : %s
+
+				Amount Paid     : %s %s
+				Units Credited  : %s
+				New Balance     : %s
+
+				============================================================
+
+				Your updated prepaid balance is now available for use.
+
+				A professional PDF receipt for this transaction is attached
+				to this email for your records.
+
+				If you did not authorize this transaction or believe any
+				information is incorrect, please contact our support team.
+
+				Thank you for choosing AMI.
+
+				Regards,
+				AMI Support Team
+				""".formatted(customerName, rechargeNumber, deviceIdentifier, paymentId, rechargeDate, currency, amount,
+				creditedUnits, balanceAfter);
+	}
+
+	// ============================================================
+	// FAILURE EMAIL BODY
+	// ============================================================
+
+	private String buildRechargeFailureEmailBody(String customerName, String deviceIdentifier, String rechargeNumber,
+			BigDecimal amount, String currency, String failureReason, LocalDateTime rechargeDate) {
+
+		return """
+				Dear %s,
+
+				We were unable to complete your prepaid recharge.
+
+				No prepaid units have been credited to your device as part
+				of this unsuccessful transaction.
+
+				============================================================
+				RECHARGE DETAILS
+				============================================================
+
+				Recharge Number : %s
+				Device          : %s
+				Recharge Date   : %s
+
+				Amount          : %s %s
+				Status          : FAILED
+
+				Reason          : %s
+
+				============================================================
+
+				If any amount was deducted from your account, please allow
+				your payment provider to process the reversal/refund
+				according to their normal processing time.
+
+				You may try the recharge again after verifying your
+				payment details.
+
+				If you believe this failure occurred incorrectly, please
+				contact our support team and provide the recharge number
+				mentioned above.
+
+				Regards,
+				AMI Support Team
+				""".formatted(customerName, rechargeNumber, deviceIdentifier, rechargeDate, currency, amount,
+				normalizeFailureReason(failureReason));
+	}
+
+	// ============================================================
+	// PDF RECEIPT
+	// ============================================================
+
+	private byte[] generateRechargeReceiptPdf(String customerName, String deviceIdentifier, String rechargeNumber,
+			BigDecimal amount, BigDecimal creditedUnits, BigDecimal balanceBefore, BigDecimal balanceAfter,
+			String paymentId, String paymentMethod, String currency, LocalDateTime rechargeDate) throws IOException {
+
+		try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); PDDocument document = new PDDocument()) {
+
+			PDPage page = new PDPage(PDRectangle.A4);
+			document.addPage(page);
+
+			try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+
+				float pageWidth = page.getMediaBox().getWidth();
+
+				// --------------------------------------------------------
+				// HEADER
+				// --------------------------------------------------------
+
+				content.setNonStrokingColor(new Color(25, 55, 109));
+
+				content.addRect(0, 730, pageWidth, 112);
+
+				content.fill();
+
+				content.setNonStrokingColor(Color.WHITE);
+
+				content.beginText();
+				content.setFont(PDType1Font.HELVETICA_BOLD, 24);
+				content.newLineAtOffset(50, 795);
+				content.showText("AMI");
+				content.endText();
+
+				content.beginText();
+				content.setFont(PDType1Font.HELVETICA, 11);
+				content.newLineAtOffset(50, 772);
+				content.showText("Advanced Metering Infrastructure");
+				content.endText();
+
+				content.beginText();
+				content.setFont(PDType1Font.HELVETICA_BOLD, 16);
+				content.newLineAtOffset(390, 790);
+				content.showText("RECHARGE RECEIPT");
+				content.endText();
+
+				// --------------------------------------------------------
+				// SUCCESS STATUS
+				// --------------------------------------------------------
+
+				content.setNonStrokingColor(new Color(40, 167, 69));
+
+				content.addRect(50, 685, 495, 35);
+
+				content.fill();
+
+				content.setNonStrokingColor(Color.WHITE);
+
+				content.beginText();
+				content.setFont(PDType1Font.HELVETICA_BOLD, 13);
+				content.newLineAtOffset(225, 697);
+				content.showText("PAYMENT SUCCESSFUL");
+				content.endText();
+
+				// --------------------------------------------------------
+				// CUSTOMER INFORMATION
+				// --------------------------------------------------------
+
+				drawSectionTitle(content, "CUSTOMER & DEVICE INFORMATION", 650);
+
+				drawRow(content, "Customer Name", customerName, 625);
+
+				drawRow(content, "Device", deviceIdentifier, 602);
+
+				drawRow(content, "Recharge Number", rechargeNumber, 579);
+
+				drawRow(content, "Recharge Date", rechargeDate.toString(), 556);
+
+				// --------------------------------------------------------
+				// PAYMENT INFORMATION
+				// --------------------------------------------------------
+
+				drawSectionTitle(content, "PAYMENT INFORMATION", 515);
+
+				drawRow(content, "Payment ID", paymentId, 490);
+
+				drawRow(content, "Payment Method", paymentMethod, 467);
+
+				drawRow(content, "Amount Paid", currency + " " + amount, 444);
+
+				// --------------------------------------------------------
+				// PREPAID BALANCE
+				// --------------------------------------------------------
+
+				drawSectionTitle(content, "PREPAID BALANCE", 403);
+
+				drawRow(content, "Balance Before", balanceBefore.toPlainString(), 378);
+
+				drawRow(content, "Units Credited", creditedUnits.toPlainString(), 355);
+
+				drawRow(content, "Balance After", balanceAfter.toPlainString(), 332);
+
+				// --------------------------------------------------------
+				// FOOTER
+				// --------------------------------------------------------
+
+				content.setNonStrokingColor(new Color(100, 100, 100));
+
+				content.beginText();
+				content.setFont(PDType1Font.HELVETICA, 9);
+				content.newLineAtOffset(50, 85);
+				content.showText("This is a system-generated receipt and does not require a signature.");
+				content.endText();
+
+				content.beginText();
+				content.newLineAtOffset(50, 68);
+				content.showText("Please retain this receipt for your records.");
+				content.endText();
+
+				content.beginText();
+				content.newLineAtOffset(50, 45);
+				content.showText("AMI Support Team");
+				content.endText();
+			}
+
+			document.save(outputStream);
+
+			return outputStream.toByteArray();
+		}
+	}
+
+	// ============================================================
+	// PDF HELPER METHODS
+	// ============================================================
+
+	private void drawSectionTitle(PDPageContentStream content, String title, float y) throws IOException {
+
+		content.setNonStrokingColor(new Color(25, 55, 109));
+
+		content.beginText();
+		content.setFont(PDType1Font.HELVETICA_BOLD, 11);
+		content.newLineAtOffset(50, y);
+		content.showText(title);
+		content.endText();
+	}
+
+	private void drawRow(PDPageContentStream content, String label, String value, float y) throws IOException {
+
+		content.setNonStrokingColor(Color.DARK_GRAY);
+
+		content.beginText();
+		content.setFont(PDType1Font.HELVETICA_BOLD, 10);
+		content.newLineAtOffset(60, y);
+		content.showText(label);
+		content.endText();
+
+		content.beginText();
+		content.setFont(PDType1Font.HELVETICA, 10);
+		content.newLineAtOffset(250, y);
+		content.showText(value != null ? value : "-");
+		content.endText();
+	}
+
+	private String normalizeFailureReason(String reason) {
+
+		if (reason == null || reason.isBlank()) {
+			return "Payment could not be verified.";
+		}
+
+		return reason;
+	}
+
+	@Override
+	public void sendPrepaidLowBalanceEmail(String recipientEmail, String customerName, String deviceIdentifier,
+			BigDecimal availableUnits, BigDecimal totalCreditedUnits, BigDecimal percentageRemaining) {
+
+		String subject = "Low Prepaid Balance Alert – " + deviceIdentifier;
+
+		String body = """
+				<!DOCTYPE html>
+				<html>
+				<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+
+				    <h2 style="color: #d97706;">Low Prepaid Balance Alert</h2>
+
+				    <p>Dear %s,</p>
+
+				    <p>
+				        This is a notification that the prepaid balance for your device
+				        <strong>%s</strong> has fallen below the low-balance threshold.
+				    </p>
+
+				    <table style="border-collapse: collapse; margin: 20px 0;">
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Device</strong></td>
+				            <td style="padding: 8px;">%s</td>
+				        </tr>
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Available Balance</strong></td>
+				            <td style="padding: 8px;">%s units</td>
+				        </tr>
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Original Credited Units</strong></td>
+				            <td style="padding: 8px;">%s units</td>
+				        </tr>
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Balance Remaining</strong></td>
+				            <td style="padding: 8px;">%s%%</td>
+				        </tr>
+				    </table>
+
+				    <p>
+				        We recommend recharging your prepaid balance soon to avoid
+				        interruption of service.
+				    </p>
+
+				    <p>
+				        You can recharge your device from your AMI account.
+				    </p>
+
+				    <p>Regards,<br><strong>AMI Billing Team</strong></p>
+
+				</body>
+				</html>
+				""".formatted(customerName, deviceIdentifier, deviceIdentifier, availableUnits, totalCreditedUnits,
+				percentageRemaining);
+
+		try {
+			MimeMessage message = mailSender.createMimeMessage();
+
+			MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+
+			helper.setFrom(fromEmail);
+			helper.setTo(recipientEmail);
+			helper.setSubject(subject);
+			helper.setText(body, true);
+
+			mailSender.send(message);
+
+		} catch (MessagingException e) {
+			throw new RuntimeException("Failed to send prepaid low balance email", e);
+		}
+	}
+
+	@Override
+	public void sendPrepaidVeryLowBalanceEmail(String recipientEmail, String customerName, String deviceIdentifier,
+			BigDecimal availableUnits, BigDecimal totalCreditedUnits, BigDecimal percentageRemaining) {
+
+		String subject = "URGENT: Very Low Prepaid Balance – " + deviceIdentifier;
+
+		String body = """
+				<!DOCTYPE html>
+				<html>
+				<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+
+				    <h2 style="color: #b91c1c;">Very Low Prepaid Balance</h2>
+
+				    <p>Dear %s,</p>
+
+				    <p>
+				        Your prepaid balance for device <strong>%s</strong> is now
+				        critically low.
+				    </p>
+
+				    <table style="border-collapse: collapse; margin: 20px 0;">
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Device</strong></td>
+				            <td style="padding: 8px;">%s</td>
+				        </tr>
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Available Balance</strong></td>
+				            <td style="padding: 8px;">%s units</td>
+				        </tr>
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Original Credited Units</strong></td>
+				            <td style="padding: 8px;">%s units</td>
+				        </tr>
+				        <tr>
+				            <td style="padding: 8px 20px 8px 0;"><strong>Balance Remaining</strong></td>
+				            <td style="padding: 8px;">%s%%</td>
+				        </tr>
+				    </table>
+
+				    <p>
+				        <strong>Immediate action is recommended.</strong>
+				        Please recharge your prepaid balance to avoid possible
+				        interruption of service.
+				    </p>
+
+				    <p>
+				        You can recharge your device from your AMI account.
+				    </p>
+
+				    <p>Regards,<br><strong>AMI Billing Team</strong></p>
+
+				</body>
+				</html>
+				""".formatted(customerName, deviceIdentifier, deviceIdentifier, availableUnits, totalCreditedUnits,
+				percentageRemaining);
+
+		try {
+			MimeMessage message = mailSender.createMimeMessage();
+
+			MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+
+			helper.setFrom(fromEmail);
+			helper.setTo(recipientEmail);
+			helper.setSubject(subject);
+			helper.setText(body, true);
+
+			mailSender.send(message);
+
+		} catch (MessagingException e) {
+			throw new RuntimeException("Failed to send prepaid very low balance email", e);
 		}
 	}
 

@@ -20,6 +20,12 @@ public class AuditLog {
     private String module;
 
     private Long entityId;
+    
+    @Column(name = "entity_type", length = 50)
+    private String entityType;
+    
+    @Column(name = "target_admin_id")
+    private Long targetAdminId;
 
     private String action;
 

@@ -270,7 +270,8 @@ public class PayloadServiceImpl implements PayloadService {
 
 			todayConsumption = safeDouble(payloadRepository.findTodayConsumption(todayStart, todayEnd));
 
-			todayRecharge = safeDouble(prepaidRechargeRepository.findTotalRechargeBetween(RechargeStatus.SUCCESS, todayStart, todayEnd)); 
+			todayRecharge = safeDouble(
+					prepaidRechargeRepository.findTotalRechargeBetween(RechargeStatus.SUCCESS, todayStart, todayEnd));
 
 		} else if (loggedInUser.getRole() == RoleType.ADMIN) {
 
@@ -930,7 +931,26 @@ public class PayloadServiceImpl implements PayloadService {
 
 			savedPayload = payloadRepository.save(payload);
 
-			prepaidConsumptionService.deductConsumption(device, startReading, endReading);
+			try {
+
+				prepaidConsumptionService.deductConsumption(device, startReading, endReading);
+
+			} catch (IllegalStateException | IllegalArgumentException | ResourceNotFoundException prepaidException) {
+
+				// Prepaid deduction failed (blocked / insufficient balance / invalid reading /
+				// balance not yet created for this device). deductConsumption() runs in its
+				// own transaction (REQUIRES_NEW), so this failure has already rolled back on
+				// its own — it has NOT affected the Payload row we just saved in this (outer)
+				// transaction. Mark the payload as FAILED so the failure is visible instead
+				// of silently disappearing.
+
+				savedPayload.setStatus(PayloadStatus.FAILED);
+				savedPayload.setFailureReason("Prepaid deduction failed: " + prepaidException.getMessage());
+
+				payloadRepository.save(savedPayload);
+
+				return;
+			}
 
 			telemetryService.saveTelemetryFromIngest(request, savedPayload);
 

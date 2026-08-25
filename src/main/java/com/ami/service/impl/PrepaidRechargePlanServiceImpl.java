@@ -29,8 +29,9 @@ import com.ami.repository.PrepaidRechargePlanRepository;
 import com.ami.security.SecurityUtils;
 import com.ami.service.BillingSettingsService;
 import com.ami.service.PrepaidRechargePlanService;
-
 import lombok.RequiredArgsConstructor;
+import com.ami.dto.requests.CreateAuditLogRequestDto;
+import com.ami.service.AuditService;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +44,8 @@ public class PrepaidRechargePlanServiceImpl implements PrepaidRechargePlanServic
 	private final SecurityUtils securityUtils;
 
 	private final BillingSettingsService billingSettingsService;
+
+	private final AuditService auditService;
 
 	@Override
 	@Transactional
@@ -67,7 +70,20 @@ public class PrepaidRechargePlanServiceImpl implements PrepaidRechargePlanServic
 		plan.setCreatedAt(LocalDateTime.now());
 		plan.setUpdatedAt(LocalDateTime.now());
 
-		return mapToResponse(prepaidRechargePlanRepository.save(plan));
+		PrepaidRechargePlan savedPlan = prepaidRechargePlanRepository.save(plan);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(savedPlan.getId());
+		auditRequest.setEntityType("RECHARGE_PLAN");
+		auditRequest.setTargetAdminId(resolveTargetAdminId(savedPlan.getCreatedBy()));
+		auditRequest.setAction("CREATED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Prepaid recharge plan '" + savedPlan.getPlanName() + "' created for "
+				+ savedPlan.getSourceType() + " with amount " + savedPlan.getAmount());
+		auditService.createAuditLog(auditRequest);
+
+		return mapToResponse(savedPlan);
 	}
 
 	@Override
@@ -102,7 +118,17 @@ public class PrepaidRechargePlanServiceImpl implements PrepaidRechargePlanServic
 		plan.setDescription(normalizeText(request.getDescription()));
 		plan.setUpdatedAt(LocalDateTime.now());
 
-		return mapToResponse(prepaidRechargePlanRepository.save(plan));
+		PrepaidRechargePlan updatedPlan = prepaidRechargePlanRepository.save(plan);
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(updatedPlan.getId());
+		auditRequest.setEntityType("RECHARGE_PLAN");
+		auditRequest.setTargetAdminId(resolveTargetAdminId(updatedPlan.getCreatedBy()));
+		auditRequest.setAction("UPDATED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Prepaid recharge plan '" + updatedPlan.getPlanName() + "' updated");
+		auditService.createAuditLog(auditRequest);
+		return mapToResponse(updatedPlan);
 	}
 
 	@Override
@@ -198,10 +224,38 @@ public class PrepaidRechargePlanServiceImpl implements PrepaidRechargePlanServic
 
 		validatePlanOwnershipForWrite(plan, loggedInUser);
 
+		PrepaidPlanStatus previousStatus = plan.getStatus();
+
 		plan.setStatus(status);
 		plan.setUpdatedAt(LocalDateTime.now());
 
-		return mapToResponse(prepaidRechargePlanRepository.save(plan));
+		PrepaidRechargePlan updatedPlan = prepaidRechargePlanRepository.save(plan);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(updatedPlan.getId());
+
+		String action;
+
+		if (status == PrepaidPlanStatus.ACTIVE) {
+			action = "ACTIVATED";
+		} else if (status == PrepaidPlanStatus.INACTIVE) {
+			action = "DEACTIVATED";
+		} else {
+			action = "STATUS_UPDATED";
+		}
+
+		auditRequest.setAction(action);
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setEntityType("RECHARGE_PLAN");
+		auditRequest.setTargetAdminId(resolveTargetAdminId(updatedPlan.getCreatedBy()));
+		auditRequest.setDescription("Prepaid recharge plan '" + updatedPlan.getPlanName() + "' status changed from "
+				+ previousStatus + " to " + updatedPlan.getStatus());
+
+		auditService.createAuditLog(auditRequest);
+
+		return mapToResponse(updatedPlan);
 	}
 
 	@Override
@@ -217,7 +271,24 @@ public class PrepaidRechargePlanServiceImpl implements PrepaidRechargePlanServic
 
 		validatePlanOwnershipForWrite(plan, loggedInUser);
 
+		Long deletedPlanId = plan.getId();
+		String deletedPlanName = plan.getPlanName();
+		SourceType deletedSourceType = plan.getSourceType();
+		BigDecimal deletedAmount = plan.getAmount();
+		Long deletedTargetAdminId = resolveTargetAdminId(plan.getCreatedBy());
+
 		prepaidRechargePlanRepository.delete(plan);
+
+		CreateAuditLogRequestDto auditRequest = new CreateAuditLogRequestDto();
+		auditRequest.setModule("BILLING");
+		auditRequest.setEntityId(deletedPlanId);
+		auditRequest.setEntityType("RECHARGE_PLAN");
+		auditRequest.setTargetAdminId(deletedTargetAdminId);
+		auditRequest.setAction("DELETED");
+		auditRequest.setPerformedBy(loggedInUser.getEmail());
+		auditRequest.setDescription("Prepaid recharge plan '" + deletedPlanName + "' deleted for " + deletedSourceType
+				+ " with amount " + deletedAmount);
+		auditService.createAuditLog(auditRequest);
 	}
 
 	private void validatePlanWriteAccess(User loggedInUser) {
@@ -320,6 +391,13 @@ public class PrepaidRechargePlanServiceImpl implements PrepaidRechargePlanServic
 		}
 
 		throw new IllegalArgumentException("You are not allowed to modify prepaid recharge plans");
+	}
+	
+	private Long resolveTargetAdminId(User owner) {
+	    if (owner == null || owner.getRole() != RoleType.ADMIN) {
+	        return null;
+	    }
+	    return owner.getId();
 	}
 
 }
