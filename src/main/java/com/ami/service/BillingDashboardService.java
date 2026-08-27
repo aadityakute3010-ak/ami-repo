@@ -4,5 +4,5 @@ import com.ami.dto.responses.BillingDashboardResponseDto;
 
 public interface BillingDashboardService {
 
-	BillingDashboardResponseDto getDashboard(Integer year);
+	BillingDashboardResponseDto getDashboard(Integer year, Integer month);
 }

@@ -22,4 +22,6 @@ public class SourceWiseRevenueResponseDto {
 	private BigDecimal pending;
 
 	private BigDecimal overdue;
+
+	private BigDecimal collectionPercentage;
 }

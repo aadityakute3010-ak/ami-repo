@@ -63,9 +63,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			AND i.status <> com.ami.enums.InvoiceStatus.FAILED
 			""")
-	BigDecimal getTotalRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	BigDecimal getTotalRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId,
+			@Param("year") Integer year, @Param("month") Integer month);
 
 	@Query("""
 			SELECT COALESCE(SUM(i.paidAmount), 0)
@@ -73,9 +76,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			AND i.paymentStatus = com.ami.enums.PaymentStatus.PAID
 			""")
-	BigDecimal getCollectedRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	BigDecimal getCollectedRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId,
+			@Param("year") Integer year, @Param("month") Integer month);
 
 	@Query("""
 			SELECT COALESCE(SUM(i.balanceAmount), 0)
@@ -83,10 +89,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			AND i.status = com.ami.enums.InvoiceStatus.PENDING
 			AND i.paymentStatus <> com.ami.enums.PaymentStatus.PAID
 			""")
-	BigDecimal getPendingRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	BigDecimal getPendingRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId,
+			@Param("year") Integer year, @Param("month") Integer month);
 
 	@Query("""
 			SELECT COALESCE(SUM(i.balanceAmount), 0)
@@ -94,10 +103,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			AND i.status = com.ami.enums.InvoiceStatus.OVERDUE
 			AND i.paymentStatus <> com.ami.enums.PaymentStatus.PAID
 			""")
-	BigDecimal getOverdueRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	BigDecimal getOverdueRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId,
+			@Param("year") Integer year, @Param("month") Integer month);
 
 	@Query("""
 			SELECT COUNT(i)
@@ -105,8 +117,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			""")
-	long countInvoices(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	long countInvoices(@Param("adminId") Long adminId, @Param("userId") Long userId, @Param("year") Integer year,
+			@Param("month") Integer month);
 
 	@Query("""
 			SELECT COUNT(i)
@@ -114,10 +129,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			AND i.status = :status
 			""")
 	long countByStatusForDashboard(@Param("adminId") Long adminId, @Param("userId") Long userId,
-			@Param("status") InvoiceStatus status);
+			@Param("status") InvoiceStatus status, @Param("year") Integer year, @Param("month") Integer month);
 
 	@Query("""
 			SELECT MONTH(i.invoiceDate),
@@ -143,9 +160,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			GROUP BY i.status
 			""")
-	List<Object[]> getInvoiceStatusSummary(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	List<Object[]> getInvoiceStatusSummary(@Param("adminId") Long adminId, @Param("userId") Long userId,
+			@Param("year") Integer year, @Param("month") Integer month);
 
 	@Query("""
 			SELECT i.source,
@@ -158,10 +178,13 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			JOIN i.device d
 			WHERE (:adminId IS NULL OR d.assignedAdmin.id = :adminId)
 			AND (:userId IS NULL OR d.assignedUser.id = :userId)
+			AND (:year IS NULL OR YEAR(i.invoiceDate) = :year)
+			AND (:month IS NULL OR MONTH(i.invoiceDate) = :month)
 			AND i.status <> com.ami.enums.InvoiceStatus.FAILED
 			GROUP BY i.source
 			""")
-	List<Object[]> getSourceWiseRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId);
+	List<Object[]> getSourceWiseRevenue(@Param("adminId") Long adminId, @Param("userId") Long userId,
+			@Param("year") Integer year, @Param("month") Integer month);
 
 	long countByInvoiceDate(LocalDate invoiceDate);
 
@@ -171,7 +194,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 	boolean existsByDeviceAndBillingPeriodFromAndBillingPeriodToAndStatusNot(Device device, LocalDate billingPeriodFrom,
 			LocalDate billingPeriodTo, InvoiceStatus status);
 
-	@Transactional 
+	@Transactional
 	void deleteByDeviceAndBillingPeriodFromAndBillingPeriodToAndStatus(Device device, LocalDate billingPeriodFrom,
 			LocalDate billingPeriodTo, InvoiceStatus status);
 

@@ -38,7 +38,7 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
 
     @Override
     @Transactional 
-    public BillingDashboardResponseDto getDashboard(Integer year) {
+    public BillingDashboardResponseDto getDashboard(Integer year, Integer month) {
     	
     	invoiceOverdueService.updateOverdueInvoices();
 
@@ -46,8 +46,6 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
 
         Long adminId = null;
         Long userId = null;
-        
-        int selectedYear = year != null ? year : LocalDate.now().getYear();
 
         if (loggedInUser.getRole() == RoleType.ADMIN) {
             adminId = loggedInUser.getId();
@@ -55,16 +53,33 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
             userId = loggedInUser.getId();
         }
 
-        BigDecimal totalRevenue = invoiceRepository.getTotalRevenue(adminId, userId);
-        BigDecimal collectedRevenue = invoiceRepository.getCollectedRevenue(adminId, userId);
-        BigDecimal pendingRevenue = invoiceRepository.getPendingRevenue(adminId, userId);
-        BigDecimal overdueRevenue = invoiceRepository.getOverdueRevenue(adminId, userId);
+        // Trend chart keeps its own existing behaviour untouched: always a full year,
+        // defaulting to the current year when no year is supplied.
+        int trendYear = year != null ? year : LocalDate.now().getYear();
 
-        long totalInvoices = invoiceRepository.countInvoices(adminId, userId);
-        long paidInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.PAID);
-        long pendingInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.PENDING);
-        long overdueInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.OVERDUE);
-        long failedInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.FAILED);
+        // Summary cards / status summary / source-wise revenue use a separate,
+        // independently-resolved (filterYear, filterMonth) pair:
+        //  - both given            -> exact month
+        //  - year only             -> whole year
+        //  - month only            -> most recent occurrence of that month
+        //  - neither given         -> no filter (all-time), same as before this feature existed
+        Integer filterMonth = month;
+        Integer filterYear = resolveFilterYear(year, month);
+
+        BigDecimal totalRevenue = invoiceRepository.getTotalRevenue(adminId, userId, filterYear, filterMonth);
+        BigDecimal collectedRevenue = invoiceRepository.getCollectedRevenue(adminId, userId, filterYear, filterMonth);
+        BigDecimal pendingRevenue = invoiceRepository.getPendingRevenue(adminId, userId, filterYear, filterMonth);
+        BigDecimal overdueRevenue = invoiceRepository.getOverdueRevenue(adminId, userId, filterYear, filterMonth);
+
+        long totalInvoices = invoiceRepository.countInvoices(adminId, userId, filterYear, filterMonth);
+        long paidInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.PAID,
+                filterYear, filterMonth);
+        long pendingInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.PENDING,
+                filterYear, filterMonth);
+        long overdueInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.OVERDUE,
+                filterYear, filterMonth);
+        long failedInvoices = invoiceRepository.countByStatusForDashboard(adminId, userId, InvoiceStatus.FAILED,
+                filterYear, filterMonth);
 
         return BillingDashboardResponseDto.builder()
                 .totalRevenue(defaultZero(totalRevenue))
@@ -76,10 +91,32 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
                 .pendingInvoices(pendingInvoices)
                 .overdueInvoices(overdueInvoices)
                 .failedInvoices(failedInvoices)
-                .revenueTrend(buildRevenueTrend(adminId, userId, selectedYear))
-                .statusSummary(buildStatusSummary(adminId, userId))
-                .sourceWiseRevenue(buildSourceWiseRevenue(adminId, userId))
+                .revenueTrend(buildRevenueTrend(adminId, userId, trendYear))
+                .statusSummary(buildStatusSummary(adminId, userId, filterYear, filterMonth))
+                .sourceWiseRevenue(buildSourceWiseRevenue(adminId, userId, filterYear, filterMonth))
                 .build();
+    }
+
+    // Resolves the effective filter year given the (year, month) selection.
+    // Month-only selection falls back to the most recent occurrence of that month:
+    // current year if that month has already occurred (or is the current month)
+    // this year, otherwise the previous year.
+    private Integer resolveFilterYear(Integer year, Integer month) {
+
+        if (year != null) {
+            return year;
+        }
+
+        if (month != null) {
+
+            LocalDate today = LocalDate.now();
+            int currentYear = today.getYear();
+            int currentMonth = today.getMonthValue();
+
+            return month <= currentMonth ? currentYear : currentYear - 1;
+        }
+
+        return null;
     }
 
     private List<RevenueTrendResponseDto> buildRevenueTrend(Long adminId, Long userId, int year) {
@@ -89,8 +126,8 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
         Map<Integer, Object[]> monthMap = new java.util.HashMap<>();
 
         for (Object[] row : rows) {
-            Integer month = ((Number) row[0]).intValue();
-            monthMap.put(month, row);
+            Integer m = ((Number) row[0]).intValue();
+            monthMap.put(m, row);
         }
 
         List<RevenueTrendResponseDto> response = new ArrayList<>();
@@ -117,9 +154,10 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
         return response;
     }
 
-    private List<InvoiceStatusSummaryResponseDto> buildStatusSummary(Long adminId, Long userId) {
+    private List<InvoiceStatusSummaryResponseDto> buildStatusSummary(Long adminId, Long userId, Integer year,
+            Integer month) {
 
-        List<Object[]> rows = invoiceRepository.getInvoiceStatusSummary(adminId, userId);
+        List<Object[]> rows = invoiceRepository.getInvoiceStatusSummary(adminId, userId, year, month);
 
         Map<InvoiceStatus, Long> statusMap = new EnumMap<>(InvoiceStatus.class);
 
@@ -141,9 +179,10 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
         return response;
     }
 
-    private List<SourceWiseRevenueResponseDto> buildSourceWiseRevenue(Long adminId, Long userId) {
+    private List<SourceWiseRevenueResponseDto> buildSourceWiseRevenue(Long adminId, Long userId, Integer year,
+            Integer month) {
 
-        List<Object[]> rows = invoiceRepository.getSourceWiseRevenue(adminId, userId);
+        List<Object[]> rows = invoiceRepository.getSourceWiseRevenue(adminId, userId, year, month);
 
         Map<SourceType, Object[]> sourceMap = new EnumMap<>(SourceType.class);
 
@@ -162,17 +201,31 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
 
             Object[] row = sourceMap.get(source);
 
+            BigDecimal sourceRevenue = row != null ? toBigDecimal(row[2]) : BigDecimal.ZERO;
+            BigDecimal sourceCollected = row != null ? toBigDecimal(row[3]) : BigDecimal.ZERO;
+
             response.add(SourceWiseRevenueResponseDto.builder()
                     .source(source)
                     .invoices(row != null ? ((Number) row[1]).longValue() : 0L)
-                    .revenue(row != null ? toBigDecimal(row[2]) : BigDecimal.ZERO)
-                    .collected(row != null ? toBigDecimal(row[3]) : BigDecimal.ZERO)
+                    .revenue(sourceRevenue)
+                    .collected(sourceCollected)
                     .pending(row != null ? toBigDecimal(row[4]) : BigDecimal.ZERO)
                     .overdue(row != null ? toBigDecimal(row[5]) : BigDecimal.ZERO)
+                    .collectionPercentage(calculateCollectionPercentage(sourceCollected, sourceRevenue))
                     .build());
         }
 
         return response;
+    }
+
+    private BigDecimal calculateCollectionPercentage(BigDecimal collected, BigDecimal revenue) {
+
+        if (revenue == null || revenue.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return collected.multiply(BigDecimal.valueOf(100))
+                .divide(revenue, 2, java.math.RoundingMode.HALF_UP);
     }
 
     private BigDecimal toBigDecimal(Object value) {
@@ -191,4 +244,4 @@ public class BillingDashboardServiceImpl implements BillingDashboardService {
     private BigDecimal defaultZero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
-}
+}   

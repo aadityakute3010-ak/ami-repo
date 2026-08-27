@@ -44,7 +44,6 @@ public class AuditController {
 	@PreAuthorize("hasRole('SUPER_ADMIN')")
 	@GetMapping("/entity/{entityId}")
 	public List<AuditLogResponseDto> getLogsByEntityId(@PathVariable Long entityId) {
-
 		return auditService.getLogsByEntityId(entityId);
 	}
 
